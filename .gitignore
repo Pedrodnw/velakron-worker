@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+config.env
+.gmail-token.json
+*.pem
+*.key
+*.p12
+*.pfx
+*.csv
+
+# Runtime and test output
+logs/
+*.log
+tmp/
+.tmp/
+coverage/
+.nyc_output/
+
+# Build and editor artifacts
+dist/
+build/
+.cache/
+.DS_Store
+.idea/
+.vscode/
+

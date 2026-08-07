@@ -1,0 +1,37 @@
+{
+  "name": "velakron-worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Velakron background worker foundation",
+  "main": "server.js",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "cross-env TZ=America/New_York NODE_ENV=development nodemon server.js",
+    "start": "cross-env TZ=America/New_York NODE_ENV=production node server.js",
+    "test": "cross-env TZ=America/New_York NODE_ENV=test mocha \"test/**/*.test.js\" --exit",
+    "check:syntax": "node scripts/checkSyntax.js",
+    "check:models": "node scripts/checkModelParity.js",
+    "gmail:authorize": "node scripts/authorizeGmail.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1105.0",
+    "@aws-sdk/client-sts": "^3.1105.0",
+    "dotenv": "17.4.2",
+    "express": "4.22.2",
+    "googleapis": "171.4.0",
+    "mongoose": "8.24.2",
+    "nodemailer": "^9.0.5"
+  },
+  "devDependencies": {
+    "chai": "4.5.0",
+    "cross-env": "10.1.0",
+    "mocha": "11.3.0",
+    "nodemon": "3.1.14"
+  },
+  "overrides": {
+    "diff": "8.0.3",
+    "serialize-javascript": "7.0.5"
+  }
+}
