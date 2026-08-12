@@ -19,9 +19,10 @@ const providerConfig = overrides => ({
     clientSecret: 'client-secret',
     refreshToken: 'refresh-token',
     oauthRedirectUri: 'http://127.0.0.1:5010/oauth2/callback',
-    sender: 'velakron@miamisoundrental.com',
+    authorizedMailbox: 'plara@velakron.com',
+    sender: 'app@velakron.com',
     fromName: 'Velakron',
-    replyTo: 'velakron@miamisoundrental.com',
+    replyTo: 'app@velakron.com',
   },
   ...overrides,
 })
@@ -35,7 +36,7 @@ describe('Phase 7 Gmail delivery', () => {
       config: providerConfig(),
       identityClient: {
         userinfo: {
-          get: async () => ({ data: { email: 'velakron@miamisoundrental.com' } }),
+          get: async () => ({ data: { email: 'plara@velakron.com' } }),
         },
       },
       gmailClient: {
@@ -65,10 +66,10 @@ describe('Phase 7 Gmail delivery', () => {
     expect(calls).to.have.length(1)
     expect(calls[0].userId).to.equal('me')
     const mime = Buffer.from(calls[0].requestBody.raw, 'base64url').toString('utf8')
-    expect(mime).to.include('From: Velakron <velakron@miamisoundrental.com>')
+    expect(mime).to.include('From: Velakron <app@velakron.com>')
     expect(mime).to.include('To: recipient@example.test')
     expect(mime).to.include('Subject: Velakron invitation')
-    expect(mime).to.match(/Message-ID:\s*<velakron-[a-f0-9]{32}@miamisoundrental\.com>/i)
+    expect(mime).to.match(/Message-ID:\s*<velakron-[a-f0-9]{32}@velakron\.com>/i)
   })
 
   it('refuses a token belonging to any other Google mailbox', async () => {
@@ -76,7 +77,7 @@ describe('Phase 7 Gmail delivery', () => {
     const provider = new GmailEmailProvider({
       config: providerConfig(),
       identityClient: {
-        userinfo: { get: async () => ({ data: { email: 'someone@miamisoundrental.com' } }) },
+        userinfo: { get: async () => ({ data: { email: 'someone@velakron.com' } }) },
       },
       gmailClient: {
         users: { messages: { send: async () => { sendCalled = true } } },
@@ -172,6 +173,9 @@ describe('Phase 7 Gmail delivery', () => {
       'VELAKRON_GMAIL_CLIENT_ID',
       'VELAKRON_GMAIL_CLIENT_SECRET',
       'VELAKRON_GMAIL_REFRESH_TOKEN',
+      'VELAKRON_GMAIL_CREDENTIALS_FILE',
+      'VELAKRON_GMAIL_TOKEN_FILE',
+      'VELAKRON_GMAIL_AUTHORIZED_MAILBOX',
       'VELAKRON_EMAIL_ALLOWED_RECIPIENTS',
     ]
     const previous = Object.fromEntries(keys.map(key => [key, process.env[key]]))
@@ -185,6 +189,8 @@ describe('Phase 7 Gmail delivery', () => {
       delete process.env.VELAKRON_GMAIL_CLIENT_ID
       delete process.env.VELAKRON_GMAIL_CLIENT_SECRET
       delete process.env.VELAKRON_GMAIL_REFRESH_TOKEN
+      delete process.env.VELAKRON_GMAIL_CREDENTIALS_FILE
+      delete process.env.VELAKRON_GMAIL_TOKEN_FILE
       process.env.VELAKRON_EMAIL_ALLOWED_RECIPIENTS = 'recipient@example.test'
       expect(() => loadConfig()).to.throw('Gmail client ID, client secret, and refresh token are required')
     } finally {

@@ -6,15 +6,44 @@ const { google } = require('googleapis')
 
 require('../config/env')
 
-const clientId = String(process.env.VELAKRON_GMAIL_CLIENT_ID || '').trim()
-const clientSecret = String(process.env.VELAKRON_GMAIL_CLIENT_SECRET || '').trim()
-const expectedMailbox = String(
-  process.env.VELAKRON_GMAIL_SENDER || 'velakron@miamisoundrental.com',
-).trim().toLowerCase()
 const redirectUri = String(
   process.env.VELAKRON_GMAIL_OAUTH_REDIRECT_URI
     || 'http://127.0.0.1:5010/oauth2/callback',
 ).trim()
+const credentialsFileInput = String(
+  process.argv[2] || process.env.VELAKRON_GMAIL_CREDENTIALS_FILE || '',
+).trim()
+const credentialsFile = credentialsFileInput
+  ? path.resolve(credentialsFileInput)
+  : null
+
+const readClientCredentials = () => {
+  let clientId = String(process.env.VELAKRON_GMAIL_CLIENT_ID || '').trim()
+  let clientSecret = String(process.env.VELAKRON_GMAIL_CLIENT_SECRET || '').trim()
+  if (!credentialsFile) return { clientId, clientSecret }
+
+  let parsed
+  try {
+    parsed = JSON.parse(fs.readFileSync(credentialsFile, 'utf8'))
+  } catch {
+    throw new Error('The Google OAuth client credential file could not be read')
+  }
+  const client = parsed?.web || parsed?.installed
+  clientId = String(client?.client_id || '').trim()
+  clientSecret = String(client?.client_secret || '').trim()
+  const redirectUris = Array.isArray(client?.redirect_uris) ? client.redirect_uris : []
+  if (!redirectUris.includes(redirectUri)) {
+    throw new Error('The Google OAuth client does not contain the configured local callback URI')
+  }
+  return { clientId, clientSecret }
+}
+
+const { clientId, clientSecret } = readClientCredentials()
+const expectedMailbox = String(
+  process.env.VELAKRON_GMAIL_AUTHORIZED_MAILBOX
+    || process.env.VELAKRON_GMAIL_SENDER
+    || 'velakron@miamisoundrental.com',
+).trim().toLowerCase()
 const tokenFile = path.resolve(
   __dirname,
   '..',
@@ -23,7 +52,9 @@ const tokenFile = path.resolve(
 const gmailSendScope = 'https://www.googleapis.com/auth/gmail.send'
 
 if (!clientId || !clientSecret) {
-  throw new Error('Add VELAKRON_GMAIL_CLIENT_ID and VELAKRON_GMAIL_CLIENT_SECRET before authorizing Gmail')
+  throw new Error(
+    'Add Gmail client credentials to the environment or pass the downloaded Google OAuth JSON file',
+  )
 }
 
 const redirect = new URL(redirectUri)

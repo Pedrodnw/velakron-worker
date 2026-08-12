@@ -104,7 +104,7 @@ class GmailEmailProvider {
       const safe = safeProviderError(error)
       throw new GmailProviderError('Gmail mailbox verification failed', safe)
     }
-    if (profile !== normalizeAddress(this.config.gmail.sender)) {
+    if (profile !== normalizeAddress(this.config.gmail.authorizedMailbox)) {
       throw new GmailProviderError('Gmail token belongs to a different mailbox', {
         code: 'GMAIL_SENDER_MISMATCH',
         retryable: false,
@@ -132,6 +132,7 @@ class GmailEmailProvider {
       })
     }
     const hash = crypto.createHash('sha256').update(String(idempotencyKey)).digest('hex').slice(0, 32)
+    const senderDomain = this.config.gmail.sender.split('@')[1]
     const mail = new MailComposer({
       to: recipient,
       from: {
@@ -142,7 +143,7 @@ class GmailEmailProvider {
       subject,
       text,
       html,
-      messageId: `<velakron-${hash}@miamisoundrental.com>`,
+      messageId: `<velakron-${hash}@${senderDomain}>`,
       headers: {
         'X-Velakron-Delivery': hash,
       },

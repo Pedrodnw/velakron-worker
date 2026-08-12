@@ -52,6 +52,28 @@ const readRefreshToken = tokenFile => {
   }
 }
 
+const readGoogleOAuthClient = redirectUri => {
+  const configuredFile = String(process.env.VELAKRON_GMAIL_CREDENTIALS_FILE || '').trim()
+  if (!configuredFile) {
+    return {
+      clientId: String(process.env.VELAKRON_GMAIL_CLIENT_ID || '').trim(),
+      clientSecret: String(process.env.VELAKRON_GMAIL_CLIENT_SECRET || '').trim(),
+    }
+  }
+  try {
+    const parsed = JSON.parse(fs.readFileSync(path.resolve(workerRoot, configuredFile), 'utf8'))
+    const client = parsed?.web || parsed?.installed
+    const redirectUris = Array.isArray(client?.redirect_uris) ? client.redirect_uris : []
+    if (!redirectUris.includes(redirectUri)) throw new Error('callback mismatch')
+    return {
+      clientId: String(client?.client_id || '').trim(),
+      clientSecret: String(client?.client_secret || '').trim(),
+    }
+  } catch {
+    throw new Error('VELAKRON_GMAIL_CREDENTIALS_FILE must contain valid Google OAuth client JSON')
+  }
+}
+
 const loadConfig = () => {
   const nodeEnv = process.env.NODE_ENV || 'development'
   if (!['development', 'test', 'production'].includes(nodeEnv)) {
@@ -118,11 +140,21 @@ const loadConfig = () => {
     workerRoot,
     process.env.VELAKRON_GMAIL_TOKEN_FILE || '.gmail-token.json',
   )
+  const gmailOauthRedirectUri = String(
+    process.env.VELAKRON_GMAIL_OAUTH_REDIRECT_URI
+      || 'http://127.0.0.1:5010/oauth2/callback',
+  ).trim()
+  const gmailOAuthClient = readGoogleOAuthClient(gmailOauthRedirectUri)
   const gmail = Object.freeze({
-    clientId: String(process.env.VELAKRON_GMAIL_CLIENT_ID || '').trim(),
-    clientSecret: String(process.env.VELAKRON_GMAIL_CLIENT_SECRET || '').trim(),
+    clientId: gmailOAuthClient.clientId,
+    clientSecret: gmailOAuthClient.clientSecret,
     refreshToken: readRefreshToken(gmailTokenFile),
     tokenFile: gmailTokenFile,
+    authorizedMailbox: String(
+      process.env.VELAKRON_GMAIL_AUTHORIZED_MAILBOX
+        || process.env.VELAKRON_GMAIL_SENDER
+        || 'velakron@miamisoundrental.com',
+    ).trim().toLowerCase(),
     sender: String(
       process.env.VELAKRON_GMAIL_SENDER || 'velakron@miamisoundrental.com',
     ).trim().toLowerCase(),
@@ -130,10 +162,7 @@ const loadConfig = () => {
     replyTo: String(
       process.env.VELAKRON_GMAIL_REPLY_TO || 'velakron@miamisoundrental.com',
     ).trim().toLowerCase(),
-    oauthRedirectUri: String(
-      process.env.VELAKRON_GMAIL_OAUTH_REDIRECT_URI
-        || 'http://127.0.0.1:5010/oauth2/callback',
-    ).trim(),
+    oauthRedirectUri: gmailOauthRedirectUri,
   })
   const allowedRecipients = parseList(process.env.VELAKRON_EMAIL_ALLOWED_RECIPIENTS)
   const malwareScannerAdapter = String(process.env.VELAKRON_MALWARE_SCANNER_ADAPTER || 'disabled')
@@ -179,8 +208,10 @@ const loadConfig = () => {
     if (!validOutboxEncryptionKey(outboxEncryptionKey)) {
       throw new Error('VELAKRON_OUTBOX_ENCRYPTION_KEY must contain 32 to 64 base64-encoded random bytes when delivery is enabled')
     }
-    if (!/^\S+@\S+\.\S+$/.test(gmail.sender) || !/^\S+@\S+\.\S+$/.test(gmail.replyTo)) {
-      throw new Error('Gmail sender and reply-to must be valid email addresses')
+    if (!/^\S+@\S+\.\S+$/.test(gmail.authorizedMailbox)
+      || !/^\S+@\S+\.\S+$/.test(gmail.sender)
+      || !/^\S+@\S+\.\S+$/.test(gmail.replyTo)) {
+      throw new Error('Gmail authorized mailbox, sender, and reply-to must be valid email addresses')
     }
     if (nodeEnv !== 'production' && allowedRecipients.length === 0) {
       throw new Error('VELAKRON_EMAIL_ALLOWED_RECIPIENTS is required for non-production Gmail delivery')
