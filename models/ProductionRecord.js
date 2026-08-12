@@ -118,8 +118,9 @@ const createProductionRecordSchema = () => {
     first_article_note: { type: String, trim: true, maxlength: 2000, default: '' },
     oem_internal_note: { type: String, trim: true, maxlength: 3000, default: '', select: false },
     process_summary: { type: String, trim: true, maxlength: 1000, default: '' },
-    external_erp_reference: { type: String, trim: true, maxlength: 160, default: '' },
-    lifecycle_state: {
+  external_erp_reference: { type: String, trim: true, maxlength: 160, default: '' },
+  demo_workspace: { type: Boolean, default: false, required: true, index: true },
+  lifecycle_state: {
       type: String,
       enum: ['draft', 'active', 'cancelled', 'completed', 'archived'],
       default: 'draft',

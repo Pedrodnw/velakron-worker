@@ -1,3 +1,4 @@
+const mongoose = require('mongoose')
 const AttentionCondition = require('../models/AttentionCondition')
 const ProductionRecord = require('../models/ProductionRecord')
 const SupplierAssignment = require('../models/SupplierAssignment')
@@ -30,7 +31,10 @@ const evaluateAttentionBatch = async ({
   write = false,
 } = {}) => {
   const safeLimit = Math.max(1, Math.min(Number(limit) || 100, 100))
-  const records = await ProductionRecord.find({ lifecycle_state: 'active' })
+  const records = await ProductionRecord.find({
+    lifecycle_state: 'active',
+    demo_workspace: mongoose.trusted({ $ne: true }),
+  })
     .sort({ last_attention_evaluated_at: 1, _id: 1 })
     .limit(safeLimit)
   let evaluated = 0
