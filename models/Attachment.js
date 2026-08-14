@@ -12,7 +12,7 @@ const createAttachmentSchema = () => {
     },
     subject_type: {
       type: String,
-      enum: ['Machine', 'Certification', 'ProductionRecord', 'StatusEvent', 'Note', 'OrganizationRelationship', 'ConfidentialityRequirement', 'InternalTask'],
+      enum: ['Machine', 'Certification', 'ProductionRecord', 'StatusEvent', 'Note', 'OrganizationRelationship', 'ConfidentialityRequirement', 'InternalTask', 'CrmOrganization', 'CrmOpportunity', 'CrmOnboarding', 'CrmMeeting', 'CrmInteraction'],
       required: true,
     },
     subject_id: { type: Schema.Types.ObjectId, required: true, index: true },
