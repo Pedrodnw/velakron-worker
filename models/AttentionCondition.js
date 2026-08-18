@@ -10,10 +10,21 @@ const ATTENTION_CODES = Object.freeze([
   'MISSING_EXPECTED_SHIP_DATE',
   'SUPPLIER_REPORTED_ISSUE',
   'MANUAL_OEM_ATTENTION',
+  'NON_CONFORMANCE',
+  'PRODUCTION_BLOCK',
+  'ISSUE',
+  'INFORMATION_FLAG',
+  'OEM_QUALITY_ISSUE',
   'MACHINE_UNASSIGNED',
 ])
 const ATTENTION_SEVERITIES = Object.freeze(['low', 'medium', 'high'])
 const ATTENTION_SOURCES = Object.freeze(['computed', 'supplier', 'oem', 'velakron'])
+const ATTENTION_CATEGORIES = Object.freeze([
+  'non_conformance',
+  'production_block',
+  'issue',
+  'information_flag',
+])
 
 const createAttentionConditionSchema = () => {
   const schema = new Schema({
@@ -21,6 +32,7 @@ const createAttentionConditionSchema = () => {
     oem_organization: { type: Schema.Types.ObjectId, ref: 'Organization', required: true, index: true },
     supplier_organization: { type: Schema.Types.ObjectId, ref: 'Organization', default: null, index: true },
     code: { type: String, enum: ATTENTION_CODES, required: true, index: true },
+    category: { type: String, enum: ATTENTION_CATEGORIES, default: null, index: true },
     policy_version: { type: String, required: true, trim: true, maxlength: 80, default: 'attention-v1' },
     severity: { type: String, enum: ATTENTION_SEVERITIES, required: true },
     health: {
@@ -78,4 +90,5 @@ module.exports = AttentionCondition
 module.exports.ATTENTION_CODES = ATTENTION_CODES
 module.exports.ATTENTION_SEVERITIES = ATTENTION_SEVERITIES
 module.exports.ATTENTION_SOURCES = ATTENTION_SOURCES
+module.exports.ATTENTION_CATEGORIES = ATTENTION_CATEGORIES
 module.exports.createAttentionConditionSchema = createAttentionConditionSchema

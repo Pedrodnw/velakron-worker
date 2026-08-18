@@ -10,6 +10,12 @@ const POLICY = Object.freeze({
   highSlipDays: 7,
   machineRequiredStage: 'in_production',
 })
+const MANUAL_ATTENTION_CATEGORY_POLICY = Object.freeze({
+  non_conformance: Object.freeze({ code: 'NON_CONFORMANCE', severity: 'high', health: 'at_risk' }),
+  production_block: Object.freeze({ code: 'PRODUCTION_BLOCK', severity: 'high', health: 'at_risk' }),
+  issue: Object.freeze({ code: 'ISSUE', severity: 'medium', health: 'needs_attention' }),
+  information_flag: Object.freeze({ code: 'INFORMATION_FLAG', severity: 'low', health: 'on_schedule' }),
+})
 const resolvedPolicy = policy => ({ ...POLICY, ...(policy || {}) })
 const DAY_MS = 24 * 60 * 60 * 1000
 const hoursBetween = (earlier, later) => Math.max(0, (new Date(later) - new Date(earlier)) / (60 * 60 * 1000))
@@ -37,7 +43,7 @@ const evaluateComputedAttention = ({ record, assignment = null, now = new Date()
   const requiredDate = record.required_delivery_date && new Date(record.required_delivery_date)
   const projectedArrival = record.projected_arrival_date && new Date(record.projected_arrival_date)
 
-  if (requiredDate && now > requiredDate && record.current_stage !== 'delivered') {
+  if (requiredDate && now > requiredDate && !record.delivered_at) {
     const days = calendarDaysBetween(requiredDate, now)
     results.push(condition(
       'REQUIRED_DATE_PASSED',
@@ -46,7 +52,7 @@ const evaluateComputedAttention = ({ record, assignment = null, now = new Date()
       `Required arrival date passed ${days || 1} day${days === 1 ? '' : 's'} ago.`,
       { required_delivery_date: isoDate(requiredDate), days_past_due: days || 1 },
     ))
-  } else if (requiredDate && projectedArrival && projectedArrival > requiredDate) {
+  } else if (requiredDate && projectedArrival && projectedArrival > requiredDate && !record.delivered_at) {
     const days = calendarDaysBetween(requiredDate, projectedArrival)
     results.push(condition(
       'FORECAST_AFTER_REQUIRED',
@@ -75,7 +81,7 @@ const evaluateComputedAttention = ({ record, assignment = null, now = new Date()
     }
   }
 
-  if (record.acceptance_status === 'accepted' && !record.expected_ship_date) {
+  if (record.acceptance_status === 'accepted' && !record.delivered_at && !record.expected_ship_date) {
     results.push(condition(
       'MISSING_EXPECTED_SHIP_DATE',
       'needs_attention',
@@ -84,7 +90,7 @@ const evaluateComputedAttention = ({ record, assignment = null, now = new Date()
     ))
   }
 
-  if (record.acceptance_status === 'accepted' && record.last_supplier_update_at) {
+  if (record.acceptance_status === 'accepted' && !record.delivered_at && record.last_supplier_update_at) {
     const days = calendarDaysBetween(record.last_supplier_update_at, now)
     if (days >= policy.staleSupplierDays) {
       results.push(condition(
@@ -98,6 +104,7 @@ const evaluateComputedAttention = ({ record, assignment = null, now = new Date()
   }
 
   if (record.acceptance_status === 'accepted'
+    && !record.delivered_at
     && stageIndex(record.current_stage) >= stageIndex(policy.machineRequiredStage)
     && !record.current_machine) {
     results.push(condition(
@@ -197,6 +204,7 @@ const synchronizeAttention = async ({ record, now = new Date(), session = null, 
 }
 
 module.exports = {
+  MANUAL_ATTENTION_CATEGORY_POLICY,
   POLICY,
   POLICY_VERSION,
   calendarDaysBetween,

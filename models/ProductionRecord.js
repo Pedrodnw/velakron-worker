@@ -11,6 +11,8 @@ const PRODUCTION_STAGES = Object.freeze([
   'ready_to_ship',
   'shipped',
   'delivered',
+  'quality_review',
+  'approved',
 ])
 
 const UNIT_KEYS = Object.freeze([
@@ -53,10 +55,20 @@ const createProductionRecordSchema = () => {
     transit_days: { type: Number, min: 0, max: 365, default: null },
     expected_ship_date: { type: Date, default: null },
     projected_arrival_date: { type: Date, default: null },
-    shipment_date: { type: Date, default: null },
-    delivered_at: { type: Date, default: null },
-    current_stage: { type: String, enum: [null, ...PRODUCTION_STAGES], default: null, index: true },
-    workflow_version: { type: String, required: true, default: 'production-v1', maxlength: 80 },
+  shipment_date: { type: Date, default: null },
+  delivered_at: { type: Date, default: null },
+  quality_review_status: {
+    type: String,
+    enum: ['not_ready', 'pending', 'issue_open', 'approved'],
+    default: 'not_ready',
+    required: true,
+    index: true,
+  },
+  quality_review_started_at: { type: Date, default: null },
+  quality_approved_at: { type: Date, default: null },
+  quality_approved_by: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+  current_stage: { type: String, enum: [null, ...PRODUCTION_STAGES], default: null, index: true },
+  workflow_version: { type: String, required: true, default: 'production-v2', maxlength: 80 },
     schedule_health: {
       type: String,
       enum: ['unassessed', 'on_schedule', 'at_risk', 'delayed', 'needs_attention'],
