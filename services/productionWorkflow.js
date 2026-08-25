@@ -9,8 +9,14 @@ const STAGES = Object.freeze([
   'ready_to_ship',
   'shipped',
   'delivered',
+  'quality_review',
+  'approved',
 ])
 
-const stageIndex = key => STAGES.indexOf(key)
+const workflowStageKeys = record => Array.isArray(record?.workflow_steps) && record.workflow_steps.length
+  ? record.workflow_steps.map(stage => stage.key)
+  : STAGES
 
-module.exports = { STAGES, stageIndex }
+const stageIndex = (key, record = null) => workflowStageKeys(record).indexOf(key)
+
+module.exports = { STAGES, stageIndex, workflowStageKeys }

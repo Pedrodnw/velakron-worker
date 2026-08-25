@@ -105,7 +105,7 @@ const evaluateComputedAttention = ({ record, assignment = null, now = new Date()
 
   if (record.acceptance_status === 'accepted'
     && !record.delivered_at
-    && stageIndex(record.current_stage) >= stageIndex(policy.machineRequiredStage)
+    && stageIndex(record.current_stage, record) >= stageIndex(policy.machineRequiredStage, record)
     && !record.current_machine) {
     results.push(condition(
       'MACHINE_UNASSIGNED',

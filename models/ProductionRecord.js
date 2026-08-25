@@ -4,9 +4,17 @@ const PRODUCTION_STAGES = Object.freeze([
   'assigned',
   'accepted',
   'material_ordered',
+  'material_quantity_confirmed',
   'material_received',
   'programming',
+  'first_article_inspection',
+  'first_article_approved',
   'in_production',
+  'secondary_machining',
+  'heat_treatment',
+  'paint',
+  'anodizing',
+  'secondary_inspection',
   'inspection',
   'ready_to_ship',
   'shipped',
@@ -31,6 +39,24 @@ const normalizeSearchValue = value => String(value || '')
   .trim()
   .toLocaleLowerCase('en-US')
   .replace(/\s+/g, ' ')
+
+const workflowConfigurationSchema = new Schema({
+  material_source: { type: String, enum: ['supplier', 'oem'], required: true },
+  supplier_material_quantity_confirmation: { type: Boolean, required: true, default: false },
+  include_programming: { type: Boolean, required: true, default: true },
+  include_quality_review: { type: Boolean, required: true, default: true },
+  custom_process_stages: [{ type: String, trim: true, maxlength: 80 }],
+}, { _id: false })
+
+const workflowStepSchema = new Schema({
+  id: { type: String, required: true, trim: true, maxlength: 120 },
+  key: { type: String, required: true, enum: PRODUCTION_STAGES },
+  label: { type: String, required: true, trim: true, maxlength: 160 },
+  owner: { type: String, required: true, enum: ['system', 'supplier', 'oem'] },
+  kind: { type: String, required: true, enum: ['core', 'conditional', 'custom'], default: 'core' },
+  skippable: { type: Boolean, required: true, default: false },
+  required_fields: [{ type: String, trim: true, maxlength: 80 }],
+}, { _id: false })
 
 const createProductionRecordSchema = () => {
   const schema = new Schema({
@@ -69,6 +95,9 @@ const createProductionRecordSchema = () => {
   quality_approved_by: { type: Schema.Types.ObjectId, ref: 'User', default: null },
   current_stage: { type: String, enum: [null, ...PRODUCTION_STAGES], default: null, index: true },
   workflow_version: { type: String, required: true, default: 'production-v2', maxlength: 80 },
+  workflow_configuration: { type: workflowConfigurationSchema, default: null },
+  workflow_steps: { type: [workflowStepSchema], default: [] },
+  current_workflow_step_id: { type: String, trim: true, maxlength: 120, default: '' },
     schedule_health: {
       type: String,
       enum: ['unassessed', 'on_schedule', 'at_risk', 'delayed', 'needs_attention'],
