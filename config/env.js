@@ -182,6 +182,10 @@ const loadConfig = () => {
   const scannerAccessKeyId = String(process.env.VELAKRON_AWS_ACCESS_KEY_ID || '').trim()
   const scannerSecretAccessKey = String(process.env.VELAKRON_AWS_SECRET_ACCESS_KEY || '').trim()
   const scannerSessionToken = String(process.env.VELAKRON_AWS_SESSION_TOKEN || '').trim()
+  const itarEnabled = parseBoolean(process.env.VELAKRON_ITAR_ENABLED, false, 'VELAKRON_ITAR_ENABLED')
+  const itarFipsEndpoint = parseBoolean(process.env.VELAKRON_ITAR_FIPS_ENDPOINT, false, 'VELAKRON_ITAR_FIPS_ENDPOINT')
+  const itarKmsKeyArn = String(process.env.VELAKRON_ITAR_KMS_KEY_ARN || '').trim()
+  const itarDatabaseApproved = parseBoolean(process.env.VELAKRON_ITAR_DATABASE_APPROVED, false, 'VELAKRON_ITAR_DATABASE_APPROVED')
   if (malwareScanningEnabled) {
     if (!jobsEnabled) throw new Error('VELAKRON_JOBS_ENABLED must be true when malware scanning is enabled')
     if (malwareScannerAdapter !== 'guardduty_s3') {
@@ -192,6 +196,27 @@ const loadConfig = () => {
     }
     if ((scannerAccessKeyId && !scannerSecretAccessKey) || (!scannerAccessKeyId && scannerSecretAccessKey)) {
       throw new Error('AWS access key ID and secret access key must be provided together')
+    }
+  }
+  if (itarEnabled) {
+    if (!['us-gov-east-1', 'us-gov-west-1'].includes(scannerRegion)) {
+      throw new Error('VELAKRON_ITAR_ENABLED requires an AWS GovCloud (US) region')
+    }
+    if (!itarFipsEndpoint) {
+      throw new Error('VELAKRON_ITAR_ENABLED requires VELAKRON_ITAR_FIPS_ENDPOINT=true')
+    }
+    const expectedKmsPrefix = `arn:aws-us-gov:kms:${scannerRegion}:${scannerAccountId}:key/`
+    if (!itarKmsKeyArn.startsWith(expectedKmsPrefix) || itarKmsKeyArn.length <= expectedKmsPrefix.length) {
+      throw new Error('VELAKRON_ITAR_KMS_KEY_ARN must be a customer-managed AWS GovCloud KMS key ARN in the configured account and region')
+    }
+    if (!malwareScanningEnabled) {
+      throw new Error('VELAKRON_ITAR_ENABLED requires malware scanning in the worker')
+    }
+    if (nodeEnv === 'production' && String(process.env.AWS_REGION || '') !== scannerRegion) {
+      throw new Error('VELAKRON_ITAR_ENABLED requires the worker runtime itself to run in the configured AWS GovCloud (US) region')
+    }
+    if (!itarDatabaseApproved) {
+      throw new Error('VELAKRON_ITAR_ENABLED requires VELAKRON_ITAR_DATABASE_APPROVED=true after the database is approved for ITAR data')
     }
   }
 
@@ -302,8 +327,11 @@ const loadConfig = () => {
         tagKey: String(
           process.env.VELAKRON_GUARDDUTY_SCAN_TAG_KEY || 'GuardDutyMalwareScanStatus',
         ).trim(),
+        fipsEndpoint: itarEnabled && itarFipsEndpoint,
+        itarKmsKeyArn,
       }),
     }),
+    itar: Object.freeze({ enabled: itarEnabled }),
   })
 }
 

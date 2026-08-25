@@ -213,4 +213,38 @@ describe('worker foundation', () => {
       expect(error.retryAfterMilliseconds).to.equal(30_000)
     }
   })
+
+  it('refuses to scan an ITAR attachment without the approved FIPS storage profile', async () => {
+    const s3Calls = []
+    const scanner = new GuardDutyS3MalwareScanner({
+      accountId: '923243861794',
+      bucket: 'velakron-itar-private-923243861794',
+      environment: 'production',
+      region: 'us-gov-west-1',
+      fipsEndpoint: true,
+      itarKmsKeyArn: 'arn:aws-us-gov:kms:us-gov-west-1:923243861794:key/11111111-2222-3333-4444-555555555555',
+      s3Client: {
+        send: async command => {
+          s3Calls.push(command.constructor.name)
+          return command.constructor.name === 'GetBucketLocationCommand'
+            ? { LocationConstraint: 'us-gov-west-1' }
+            : { TagSet: [{ Key: 'GuardDutyMalwareScanStatus', Value: 'NO_THREATS_FOUND' }] }
+        },
+      },
+      stsClient: { send: async () => ({ Account: '923243861794' }) },
+    })
+    await scanner.verifyConfiguration()
+    try {
+      await scanner.scan({
+        attachmentId: '507f1f77bcf86cd799439099',
+        objectKey: 'production/active/507f1f77bcf86cd799439011/11111111-1111-4111-8111-111111111111',
+        exportControl: 'itar',
+        encryptionProfile: 'itar-fips-pending',
+      })
+      throw new Error('Expected the unverified ITAR storage profile to be refused')
+    } catch (error) {
+      expect(error).to.include({ code: 'ITAR_STORAGE_PROFILE_INVALID', retryable: false })
+    }
+    expect(s3Calls).to.deep.equal(['GetBucketLocationCommand'])
+  })
 })

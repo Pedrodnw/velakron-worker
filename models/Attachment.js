@@ -40,8 +40,23 @@ const createAttachmentSchema = () => {
     position: { type: Number, min: 0, max: 1000, default: 0 },
     caption: { type: String, trim: true, maxlength: 500, default: '' },
     checksum: { type: String, trim: true, maxlength: 128, default: '', select: false },
-    storage_version: { type: String, trim: true, maxlength: 120, default: '' },
-    etag: { type: String, trim: true, maxlength: 240, default: '' },
+  storage_version: { type: String, trim: true, maxlength: 120, default: '' },
+  etag: { type: String, trim: true, maxlength: 240, default: '' },
+  export_control: {
+    type: String,
+    enum: ['none', 'itar'],
+    default: 'none',
+    required: true,
+    index: true,
+  },
+  encryption_profile: {
+    type: String,
+    enum: ['standard', 'itar-preview', 'itar-fips-pending', 'itar-fips-validated'],
+    default: 'standard',
+    required: true,
+  },
+  encryption_verified_at: { type: Date, default: null },
+  kms_key_reference: { type: String, trim: true, maxlength: 240, default: '', select: false },
     uploader: { type: actorSnapshotSchema, default: null },
     created_by: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     upload_expires_at: { type: Date, default: null, select: false },
@@ -87,6 +102,7 @@ const createAttachmentSchema = () => {
   schema.index({ production_record: 1, state: 1, visibility: 1, created_at: -1 })
   schema.index({ state: 1, upload_expires_at: 1 })
   schema.index({ state: 1, scan_status: 1, created_at: 1 })
+  schema.index({ production_record: 1, export_control: 1, state: 1 })
 
   schema.set('toJSON', {
     getters: true,

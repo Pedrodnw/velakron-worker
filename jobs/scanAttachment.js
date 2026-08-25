@@ -44,6 +44,8 @@ const createAttachmentScanJob = ({
       mimeType: attachment.mime_type,
       byteSize: attachment.byte_size,
       idempotencyKey: context.idempotencyKey,
+      exportControl: attachment.export_control,
+      encryptionProfile: attachment.encryption_profile,
     })
     if (!['clean', 'infected', 'unavailable'].includes(result?.status)) {
       const error = new Error('Scanner returned an unsupported result')

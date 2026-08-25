@@ -104,8 +104,17 @@ const createProductionRecordSchema = () => {
       default: 'unassigned',
       index: true,
     },
-    accepted_at: { type: Date, default: null },
-    accepted_by: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+  accepted_at: { type: Date, default: null },
+  accepted_by: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+  export_control: {
+    type: String,
+    enum: ['none', 'itar'],
+    default: 'none',
+    required: true,
+    index: true,
+  },
+  export_control_marked_at: { type: Date, default: null },
+  export_control_marked_by: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     confidentiality_level: {
       type: String,
       enum: ['confidential', 'restricted'],
@@ -171,6 +180,7 @@ const createProductionRecordSchema = () => {
   schema.index({ supplier_organization: 1, last_supplier_update_at: -1 })
   schema.index({ oem_organization: 1, lifecycle_state: 1, schedule_health: 1, highest_attention_severity: 1 })
   schema.index({ supplier_organization: 1, lifecycle_state: 1, shared_schedule_health: 1 })
+  schema.index({ oem_organization: 1, export_control: 1, lifecycle_state: 1 })
 
   schema.set('toJSON', {
     getters: true,
