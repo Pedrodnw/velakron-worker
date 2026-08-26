@@ -14,13 +14,34 @@ const workerProductionRecord = require('../models/ProductionRecord')
 const workerSupplierAssignment = require('../models/SupplierAssignment')
 const workerOneTimeToken = require('../models/OneTimeToken')
 
+const serializableOptions = options => {
+  const seen = new WeakSet()
+  const normalize = (item, depth = 0) => {
+    if (typeof item === 'function') return `[Function:${item.name || 'anonymous'}]`
+    if (!item || typeof item !== 'object') return item
+    if (item.instanceOfSchema) {
+      return {
+        schema: Object.fromEntries(Object.entries(item.paths).map(([path, value]) => [path, {
+          instance: value.instance,
+          required: Boolean(value.options?.required),
+          enum: value.enumValues || [],
+        }])),
+      }
+    }
+    if (depth >= 8 || seen.has(item)) return '[Circular]'
+    seen.add(item)
+    if (Array.isArray(item)) return item.map(value => normalize(value, depth + 1))
+    return Object.fromEntries(Object.entries(item)
+      .filter(([key]) => key !== '$id')
+      .map(([key, value]) => [key, normalize(value, depth + 1)]))
+  }
+  return normalize(options)
+}
+
 const describeSchema = schema => ({
   paths: Object.fromEntries(Object.entries(schema.paths).map(([key, value]) => [key, {
     instance: value.instance,
-    options: JSON.parse(JSON.stringify(value.options, (key, item) => {
-      if (key === '$id') return '[SchemaId]'
-      return typeof item === 'function' ? `[Function:${item.name || 'anonymous'}]` : item
-    })),
+    options: serializableOptions(value.options),
   }])),
   indexes: schema.indexes(),
   options: {

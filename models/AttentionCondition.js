@@ -25,6 +25,40 @@ const ATTENTION_CATEGORIES = Object.freeze([
   'issue',
   'information_flag',
 ])
+const ATTENTION_WORKFLOW_ACTIONS = Object.freeze([
+  'acknowledge',
+  'ask_question',
+  'answer_question',
+  'escalate_to_issue',
+  'submit_response',
+  'submit_resolution',
+  'accept_resolution',
+  'reject_resolution',
+  'escalate_to_production_block',
+  'submit_containment',
+  'submit_disposition',
+  'approve_disposition',
+  'reject_disposition',
+  'complete_required_action',
+  'submit_evidence',
+  'verify_completion',
+  'reject_completion',
+  'confirm_production_stopped',
+  'submit_block_action',
+  'request_block_release',
+  'approve_block_release',
+  'reject_block_release',
+  'confirm_production_released',
+])
+
+const attentionWorkflowEventSchema = new Schema({
+  action: { type: String, enum: ATTENTION_WORKFLOW_ACTIONS, required: true },
+  from_state: { type: String, required: true, trim: true, maxlength: 80 },
+  to_state: { type: String, required: true, trim: true, maxlength: 80 },
+  note: { type: String, trim: true, maxlength: 1000, default: '' },
+  actor: { type: actorSnapshotSchema, required: true },
+  occurred_at: { type: Date, required: true, default: Date.now },
+}, { _id: true })
 
 const createAttentionConditionSchema = () => {
   const schema = new Schema({
@@ -61,8 +95,15 @@ const createAttentionConditionSchema = () => {
     resolved_by: { type: actorSnapshotSchema, default: null },
     resolution_reason: { type: String, trim: true, maxlength: 1000, default: '' },
     reported_by: { type: actorSnapshotSchema, default: null },
+    workflow_version: { type: String, trim: true, maxlength: 80, default: '' },
+    workflow_state: { type: String, trim: true, maxlength: 80, default: '', index: true },
+    workflow_data: { type: Schema.Types.Mixed, default: {} },
+    workflow_history: { type: [attentionWorkflowEventSchema], default: [] },
+    escalated_from: { type: Schema.Types.ObjectId, ref: 'AttentionCondition', default: null },
+    escalated_to: { type: Schema.Types.ObjectId, ref: 'AttentionCondition', default: null },
   }, {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
+    optimisticConcurrency: true,
   })
 
   schema.index({ production_record: 1, active: 1, severity: 1 })
@@ -91,4 +132,5 @@ module.exports.ATTENTION_CODES = ATTENTION_CODES
 module.exports.ATTENTION_SEVERITIES = ATTENTION_SEVERITIES
 module.exports.ATTENTION_SOURCES = ATTENTION_SOURCES
 module.exports.ATTENTION_CATEGORIES = ATTENTION_CATEGORIES
+module.exports.ATTENTION_WORKFLOW_ACTIONS = ATTENTION_WORKFLOW_ACTIONS
 module.exports.createAttentionConditionSchema = createAttentionConditionSchema
