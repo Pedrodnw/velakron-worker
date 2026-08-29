@@ -10,6 +10,8 @@ const { createAttachmentScanJob } = require('./scanAttachment')
 const { createIdentityEmailJob } = require('./sendIdentityEmail')
 const { createPartWorkspaceReminderJob } = require('./partWorkspaceReminders')
 const { sweepPartWorkspaceReminders } = require('../services/partWorkspaceReminders')
+const { createInspectionReminderJob } = require('./inspectionReminders')
+const { sweepInspectionReminders } = require('../services/inspectionReminders')
 
 const registerDefaultJobs = ({ emailProvider, config, malwareScanner = null }) => {
   const runtime = config || {
@@ -19,10 +21,12 @@ const registerDefaultJobs = ({ emailProvider, config, malwareScanner = null }) =
       attentionWritesEnabled: false,
       maintenanceWritesEnabled: false,
       partReminderWritesEnabled: false,
+      inspectionReminderWritesEnabled: false,
       attentionIntervalMilliseconds: 15 * 60 * 1000,
       attachmentMaintenanceIntervalMilliseconds: 60 * 60 * 1000,
       tokenCleanupIntervalMilliseconds: 6 * 60 * 60 * 1000,
       partReminderIntervalMilliseconds: 60 * 60 * 1000,
+      inspectionReminderIntervalMilliseconds: 60 * 60 * 1000,
     },
     attention: null,
     malwareScanner: { adapter: 'disabled' },
@@ -71,6 +75,16 @@ const registerDefaultJobs = ({ emailProvider, config, malwareScanner = null }) =
       sweep: sweepPartWorkspaceReminders,
       intervalMilliseconds: runtime.jobs.partReminderIntervalMilliseconds,
       write: runtime.jobs.partReminderWritesEnabled,
+      encryptionKey: runtime.email.outboxEncryptionKey,
+      clientAppUrl: runtime.clientAppUrl || 'http://127.0.0.1:5001',
+    }))
+  }
+  if (!getJob('inspection.reminders.evaluate')) {
+    registerJob(createInspectionReminderJob({
+      enabled: runtime.jobs.scheduledEnabled,
+      sweep: sweepInspectionReminders,
+      intervalMilliseconds: runtime.jobs.inspectionReminderIntervalMilliseconds,
+      write: runtime.jobs.inspectionReminderWritesEnabled,
       encryptionKey: runtime.email.outboxEncryptionKey,
       clientAppUrl: runtime.clientAppUrl || 'http://127.0.0.1:5001',
     }))

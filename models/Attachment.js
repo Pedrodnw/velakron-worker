@@ -6,13 +6,13 @@ const createAttachmentSchema = () => {
     owner_organization: { type: Schema.Types.ObjectId, ref: 'Organization', required: true, index: true },
     category: {
       type: String,
-      enum: ['photo', 'document', 'certification', 'quality_record', 'drawing_reference', 'nda', 'technical_model', 'drawing', 'specification', 'inspection_plan', 'collaboration_evidence'],
+    enum: ['photo', 'document', 'certification', 'quality_record', 'drawing_reference', 'nda', 'technical_model', 'drawing', 'specification', 'inspection_plan', 'collaboration_evidence', 'inspection_evidence', 'cmm_report'],
       required: true,
       index: true,
     },
     subject_type: {
       type: String,
-      enum: ['Machine', 'Certification', 'ProductionRecord', 'StatusEvent', 'Note', 'OrganizationRelationship', 'ConfidentialityRequirement', 'InternalTask', 'CrmOrganization', 'CrmOpportunity', 'CrmOnboarding', 'CrmMeeting', 'CrmInteraction', 'PartRevision', 'PartCollaborationItem', 'PartCollaborationMessage', 'VisualAnchor'],
+      enum: ['Machine', 'Certification', 'ProductionRecord', 'StatusEvent', 'Note', 'OrganizationRelationship', 'ConfidentialityRequirement', 'InternalTask', 'CrmOrganization', 'CrmOpportunity', 'CrmOnboarding', 'CrmMeeting', 'CrmInteraction', 'PartRevision', 'PartCollaborationItem', 'PartCollaborationMessage', 'VisualAnchor', 'InspectionPlan', 'InspectionRun', 'InspectionResult', 'InspectionSubmission', 'InspectionImport'],
       required: true,
     },
     subject_id: { type: Schema.Types.ObjectId, required: true, index: true },

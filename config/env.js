@@ -118,6 +118,11 @@ const loadConfig = () => {
     false,
     'VELAKRON_PART_REMINDER_WRITES_ENABLED',
   )
+  const inspectionReminderWritesEnabled = parseBoolean(
+    process.env.VELAKRON_INSPECTION_REMINDER_WRITES_ENABLED,
+    false,
+    'VELAKRON_INSPECTION_REMINDER_WRITES_ENABLED',
+  )
   if (scheduledJobsEnabled && !jobsEnabled) {
     throw new Error('VELAKRON_JOBS_ENABLED must be true when scheduled jobs are enabled')
   }
@@ -129,6 +134,9 @@ const loadConfig = () => {
   }
   if (partReminderWritesEnabled && !scheduledJobsEnabled) {
     throw new Error('VELAKRON_SCHEDULED_JOBS_ENABLED must be true when Part Workspace reminder writes are enabled')
+  }
+  if (inspectionReminderWritesEnabled && !scheduledJobsEnabled) {
+    throw new Error('VELAKRON_SCHEDULED_JOBS_ENABLED must be true when inspection reminder writes are enabled')
   }
 
   const emailAdapter = String(process.env.VELAKRON_EMAIL_ADAPTER || 'development')
@@ -148,8 +156,8 @@ const loadConfig = () => {
   if (!/^https?:\/\/[^\s]+$/i.test(clientAppUrl) || (nodeEnv === 'production' && !clientAppUrl.startsWith('https://'))) {
     throw new Error('VELAKRON_CLIENT_APP_URL must be an HTTPS URL in production')
   }
-  if (partReminderWritesEnabled && !validOutboxEncryptionKey(outboxEncryptionKey)) {
-    throw new Error('VELAKRON_OUTBOX_ENCRYPTION_KEY is required when Part Workspace reminder writes are enabled')
+  if ((partReminderWritesEnabled || inspectionReminderWritesEnabled) && !validOutboxEncryptionKey(outboxEncryptionKey)) {
+    throw new Error('VELAKRON_OUTBOX_ENCRYPTION_KEY is required when reminder writes are enabled')
   }
   const gmailTokenFile = path.resolve(
     workerRoot,
@@ -273,6 +281,7 @@ const loadConfig = () => {
       attentionWritesEnabled,
       maintenanceWritesEnabled,
       partReminderWritesEnabled,
+      inspectionReminderWritesEnabled,
       instanceId: String(process.env.VELAKRON_WORKER_INSTANCE_ID || 'local-worker'),
       outboxPollMilliseconds: parsePositiveNumber(
         process.env.VELAKRON_OUTBOX_POLL_MS,
@@ -308,6 +317,11 @@ const loadConfig = () => {
         process.env.VELAKRON_PART_REMINDER_INTERVAL_MS,
         60 * 60 * 1000,
         'VELAKRON_PART_REMINDER_INTERVAL_MS',
+      ),
+      inspectionReminderIntervalMilliseconds: parsePositiveNumber(
+        process.env.VELAKRON_INSPECTION_REMINDER_INTERVAL_MS,
+        60 * 60 * 1000,
+        'VELAKRON_INSPECTION_REMINDER_INTERVAL_MS',
       ),
     }),
     attention: Object.freeze({

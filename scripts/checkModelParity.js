@@ -17,6 +17,8 @@ const serverPartReview = require('../../new-server/models/PartRevisionReview')
 const workerPartReview = require('../models/PartRevisionReview')
 const serverPartCollaboration = require('../../new-server/models/PartCollaboration')
 const workerPartCollaboration = require('../models/PartCollaboration')
+const serverInspection = require('../../new-server/models/InspectionExecution')
+const workerInspection = require('../models/InspectionExecution')
 
 const serializableOptions = options => {
   const seen = new WeakSet()
@@ -66,6 +68,10 @@ const checkModelParity = () => {
     ['PartRevisionReview', serverPartReview.createPartRevisionReviewSchema, workerPartReview.createPartRevisionReviewSchema],
     ['PartCollaborationItem', serverPartCollaboration.createPartCollaborationItemSchema, workerPartCollaboration.createPartCollaborationItemSchema],
     ['PartCollaborationMessage', serverPartCollaboration.createPartCollaborationMessageSchema, workerPartCollaboration.createPartCollaborationMessageSchema],
+    ['InspectionRun', serverInspection.createInspectionRunSchema, workerInspection.createInspectionRunSchema],
+    ['InspectionResult', serverInspection.createInspectionResultSchema, workerInspection.createInspectionResultSchema],
+    ['InspectionSubmission', serverInspection.createInspectionSubmissionSchema, workerInspection.createInspectionSubmissionSchema],
+    ['InspectionImport', serverInspection.createInspectionImportSchema, workerInspection.createInspectionImportSchema],
   ]
   for (const [name, serverFactory, workerFactory] of pairs) {
     assert.deepEqual(

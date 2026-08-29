@@ -100,7 +100,11 @@ const createAttentionConditionSchema = () => {
     workflow_data: { type: Schema.Types.Mixed, default: {} },
     workflow_history: { type: [attentionWorkflowEventSchema], default: [] },
     escalated_from: { type: Schema.Types.ObjectId, ref: 'AttentionCondition', default: null },
-    escalated_to: { type: Schema.Types.ObjectId, ref: 'AttentionCondition', default: null },
+  escalated_to: { type: Schema.Types.ObjectId, ref: 'AttentionCondition', default: null },
+  inspection_run: { type: Schema.Types.ObjectId, ref: 'InspectionRun', default: null, index: true },
+  inspection_result: { type: Schema.Types.ObjectId, ref: 'InspectionResult', default: null, index: true },
+  inspection_characteristic: { type: Schema.Types.ObjectId, ref: 'InspectionCharacteristic', default: null },
+  visual_anchor: { type: Schema.Types.ObjectId, ref: 'VisualAnchor', default: null },
   }, {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
     optimisticConcurrency: true,

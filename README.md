@@ -37,6 +37,11 @@ Scheduled attention and maintenance writes remain off until production-like
 records exist for the dry-run comparison; maintenance is non-destructive and
 report-only by default.
 
+Inspection reminders are separately gated. Evaluation uses
+`VELAKRON_INSPECTION_REMINDERS_ENABLED`; durable reminder email writes also
+require `VELAKRON_INSPECTION_REMINDER_WRITES_ENABLED=true`. Messages are generic
+and omit technical data. The default remains no reminder writes.
+
 The complete one-time Gmail setup and rollback procedure is in
 [`docs/operations/gmail-prototype.md`](../docs/operations/gmail-prototype.md).
 
