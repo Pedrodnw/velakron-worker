@@ -13,6 +13,10 @@ const workerAttention = require('../models/AttentionCondition')
 const workerProductionRecord = require('../models/ProductionRecord')
 const workerSupplierAssignment = require('../models/SupplierAssignment')
 const workerOneTimeToken = require('../models/OneTimeToken')
+const serverPartReview = require('../../new-server/models/PartRevisionReview')
+const workerPartReview = require('../models/PartRevisionReview')
+const serverPartCollaboration = require('../../new-server/models/PartCollaboration')
+const workerPartCollaboration = require('../models/PartCollaboration')
 
 const serializableOptions = options => {
   const seen = new WeakSet()
@@ -59,6 +63,9 @@ const checkModelParity = () => {
     ['ProductionRecord', serverProductionRecord.createProductionRecordSchema, workerProductionRecord.createProductionRecordSchema],
     ['SupplierAssignment', serverSupplierAssignment.createSupplierAssignmentSchema, workerSupplierAssignment.createSupplierAssignmentSchema],
     ['OneTimeToken', serverOneTimeToken.createOneTimeTokenSchema, workerOneTimeToken.createOneTimeTokenSchema],
+    ['PartRevisionReview', serverPartReview.createPartRevisionReviewSchema, workerPartReview.createPartRevisionReviewSchema],
+    ['PartCollaborationItem', serverPartCollaboration.createPartCollaborationItemSchema, workerPartCollaboration.createPartCollaborationItemSchema],
+    ['PartCollaborationMessage', serverPartCollaboration.createPartCollaborationMessageSchema, workerPartCollaboration.createPartCollaborationMessageSchema],
   ]
   for (const [name, serverFactory, workerFactory] of pairs) {
     assert.deepEqual(

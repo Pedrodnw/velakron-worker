@@ -58,6 +58,16 @@ const workflowStepSchema = new Schema({
   required_fields: [{ type: String, trim: true, maxlength: 80 }],
 }, { _id: false })
 
+const partRevisionSnapshotSchema = new Schema({
+  oem_organization_id: { type: Schema.Types.ObjectId, ref: 'Organization', default: null },
+  part_number: { type: String, trim: true, maxlength: 160, default: '' },
+  part_name: { type: String, trim: true, maxlength: 300, default: '' },
+  revision: { type: String, trim: true, maxlength: 120, default: '' },
+  manifest_hash: { type: String, trim: true, maxlength: 128, default: '' },
+  export_control: { type: String, enum: ['none', 'itar'], default: 'none' },
+  frozen_at: { type: Date, default: null },
+}, { _id: false })
+
 const createProductionRecordSchema = () => {
   const schema = new Schema({
     public_reference: { type: String, required: true, trim: true, maxlength: 40, unique: true, index: true },
@@ -66,6 +76,10 @@ const createProductionRecordSchema = () => {
     current_relationship: { type: Schema.Types.ObjectId, ref: 'OrganizationRelationship', default: null },
     current_assignment: { type: Schema.Types.ObjectId, ref: 'SupplierAssignment', default: null },
     current_assignment_sequence: { type: Number, min: 0, default: 0 },
+    part: { type: Schema.Types.ObjectId, ref: 'Part', default: null, index: true },
+    part_revision: { type: Schema.Types.ObjectId, ref: 'PartRevision', default: null, index: true },
+    part_revision_snapshot: { type: partRevisionSnapshotSchema, default: null },
+    revision_link_state: { type: String, enum: ['unlinked', 'linked', 'legacy_backfill'], default: 'unlinked', required: true, index: true },
     part_number: { type: String, trim: true, maxlength: 160, default: '' },
     normalized_part_number: { type: String, trim: true, maxlength: 160, default: '' },
     part_name: { type: String, trim: true, maxlength: 300, default: '' },
@@ -205,6 +219,7 @@ const createProductionRecordSchema = () => {
   schema.index({ supplier_organization: 1, confidentiality_state: 1, confidentiality_level: 1 })
   schema.index({ confidentiality_authorized_memberships: 1, confidentiality_state: 1 })
   schema.index({ oem_organization: 1, normalized_part_number: 1 })
+  schema.index({ part: 1, part_revision: 1, lifecycle_state: 1 })
   schema.index({ oem_organization: 1, normalized_po_number: 1 })
   schema.index({ supplier_organization: 1, last_supplier_update_at: -1 })
   schema.index({ oem_organization: 1, lifecycle_state: 1, schedule_health: 1, highest_attention_severity: 1 })

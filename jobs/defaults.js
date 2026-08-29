@@ -8,6 +8,8 @@ const { createProductionAttentionJob } = require('./evaluateProductionAttention'
 const { createAttachmentMaintenanceJob, createTokenCleanupJob } = require('./maintenance')
 const { createAttachmentScanJob } = require('./scanAttachment')
 const { createIdentityEmailJob } = require('./sendIdentityEmail')
+const { createPartWorkspaceReminderJob } = require('./partWorkspaceReminders')
+const { sweepPartWorkspaceReminders } = require('../services/partWorkspaceReminders')
 
 const registerDefaultJobs = ({ emailProvider, config, malwareScanner = null }) => {
   const runtime = config || {
@@ -16,9 +18,11 @@ const registerDefaultJobs = ({ emailProvider, config, malwareScanner = null }) =
       scheduledEnabled: false,
       attentionWritesEnabled: false,
       maintenanceWritesEnabled: false,
+      partReminderWritesEnabled: false,
       attentionIntervalMilliseconds: 15 * 60 * 1000,
       attachmentMaintenanceIntervalMilliseconds: 60 * 60 * 1000,
       tokenCleanupIntervalMilliseconds: 6 * 60 * 60 * 1000,
+      partReminderIntervalMilliseconds: 60 * 60 * 1000,
     },
     attention: null,
     malwareScanner: { adapter: 'disabled' },
@@ -59,6 +63,16 @@ const registerDefaultJobs = ({ emailProvider, config, malwareScanner = null }) =
       inspect: inspectAndRevokeExpiredTokens,
       intervalMilliseconds: runtime.jobs.tokenCleanupIntervalMilliseconds,
       write: runtime.jobs.maintenanceWritesEnabled,
+    }))
+  }
+  if (!getJob('part_workspace.reminders.evaluate')) {
+    registerJob(createPartWorkspaceReminderJob({
+      enabled: runtime.jobs.scheduledEnabled,
+      sweep: sweepPartWorkspaceReminders,
+      intervalMilliseconds: runtime.jobs.partReminderIntervalMilliseconds,
+      write: runtime.jobs.partReminderWritesEnabled,
+      encryptionKey: runtime.email.outboxEncryptionKey,
+      clientAppUrl: runtime.clientAppUrl || 'http://127.0.0.1:5001',
     }))
   }
 }

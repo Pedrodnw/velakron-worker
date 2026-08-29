@@ -113,6 +113,11 @@ const loadConfig = () => {
     false,
     'VELAKRON_MAINTENANCE_WRITES_ENABLED',
   )
+  const partReminderWritesEnabled = parseBoolean(
+    process.env.VELAKRON_PART_REMINDER_WRITES_ENABLED,
+    false,
+    'VELAKRON_PART_REMINDER_WRITES_ENABLED',
+  )
   if (scheduledJobsEnabled && !jobsEnabled) {
     throw new Error('VELAKRON_JOBS_ENABLED must be true when scheduled jobs are enabled')
   }
@@ -121,6 +126,9 @@ const loadConfig = () => {
   }
   if (maintenanceWritesEnabled && !scheduledJobsEnabled) {
     throw new Error('VELAKRON_SCHEDULED_JOBS_ENABLED must be true when maintenance writes are enabled')
+  }
+  if (partReminderWritesEnabled && !scheduledJobsEnabled) {
+    throw new Error('VELAKRON_SCHEDULED_JOBS_ENABLED must be true when Part Workspace reminder writes are enabled')
   }
 
   const emailAdapter = String(process.env.VELAKRON_EMAIL_ADAPTER || 'development')
@@ -136,6 +144,13 @@ const loadConfig = () => {
     'VELAKRON_EMAIL_DELIVERY_ENABLED',
   )
   const outboxEncryptionKey = String(process.env.VELAKRON_OUTBOX_ENCRYPTION_KEY || '').trim()
+  const clientAppUrl = String(process.env.VELAKRON_CLIENT_APP_URL || 'http://127.0.0.1:5001').trim().replace(/\/$/, '')
+  if (!/^https?:\/\/[^\s]+$/i.test(clientAppUrl) || (nodeEnv === 'production' && !clientAppUrl.startsWith('https://'))) {
+    throw new Error('VELAKRON_CLIENT_APP_URL must be an HTTPS URL in production')
+  }
+  if (partReminderWritesEnabled && !validOutboxEncryptionKey(outboxEncryptionKey)) {
+    throw new Error('VELAKRON_OUTBOX_ENCRYPTION_KEY is required when Part Workspace reminder writes are enabled')
+  }
   const gmailTokenFile = path.resolve(
     workerRoot,
     process.env.VELAKRON_GMAIL_TOKEN_FILE || '.gmail-token.json',
@@ -245,6 +260,7 @@ const loadConfig = () => {
 
   return Object.freeze({
     nodeEnv,
+    clientAppUrl,
     isProduction: nodeEnv === 'production',
     isTest: nodeEnv === 'test',
     host: process.env.HOST || '127.0.0.1',
@@ -256,6 +272,7 @@ const loadConfig = () => {
       scheduledEnabled: scheduledJobsEnabled,
       attentionWritesEnabled,
       maintenanceWritesEnabled,
+      partReminderWritesEnabled,
       instanceId: String(process.env.VELAKRON_WORKER_INSTANCE_ID || 'local-worker'),
       outboxPollMilliseconds: parsePositiveNumber(
         process.env.VELAKRON_OUTBOX_POLL_MS,
@@ -286,6 +303,11 @@ const loadConfig = () => {
         process.env.VELAKRON_TOKEN_CLEANUP_INTERVAL_MS,
         6 * 60 * 60 * 1000,
         'VELAKRON_TOKEN_CLEANUP_INTERVAL_MS',
+      ),
+      partReminderIntervalMilliseconds: parsePositiveNumber(
+        process.env.VELAKRON_PART_REMINDER_INTERVAL_MS,
+        60 * 60 * 1000,
+        'VELAKRON_PART_REMINDER_INTERVAL_MS',
       ),
     }),
     attention: Object.freeze({
