@@ -12,6 +12,9 @@ const { createPartWorkspaceReminderJob } = require('./partWorkspaceReminders')
 const { sweepPartWorkspaceReminders } = require('../services/partWorkspaceReminders')
 const { createInspectionReminderJob } = require('./inspectionReminders')
 const { sweepInspectionReminders } = require('../services/inspectionReminders')
+const { createBillingLifecycleJob, createBillingWebhookJob } = require('./billing')
+const { createBillingWebhookProcessor } = require('../services/billingWebhookProcessor')
+const { sweepBillingLifecycle } = require('../services/billingLifecycle')
 
 const registerDefaultJobs = ({ emailProvider, config, malwareScanner = null }) => {
   const runtime = config || {
@@ -22,11 +25,15 @@ const registerDefaultJobs = ({ emailProvider, config, malwareScanner = null }) =
       maintenanceWritesEnabled: false,
       partReminderWritesEnabled: false,
       inspectionReminderWritesEnabled: false,
+      billingProcessingEnabled: false,
+      billingReminderWritesEnabled: false,
       attentionIntervalMilliseconds: 15 * 60 * 1000,
       attachmentMaintenanceIntervalMilliseconds: 60 * 60 * 1000,
       tokenCleanupIntervalMilliseconds: 6 * 60 * 60 * 1000,
       partReminderIntervalMilliseconds: 60 * 60 * 1000,
       inspectionReminderIntervalMilliseconds: 60 * 60 * 1000,
+      billingProcessingIntervalMilliseconds: 60 * 1000,
+      billingLifecycleIntervalMilliseconds: 60 * 60 * 1000,
     },
     attention: null,
     malwareScanner: { adapter: 'disabled' },
@@ -85,6 +92,25 @@ const registerDefaultJobs = ({ emailProvider, config, malwareScanner = null }) =
       sweep: sweepInspectionReminders,
       intervalMilliseconds: runtime.jobs.inspectionReminderIntervalMilliseconds,
       write: runtime.jobs.inspectionReminderWritesEnabled,
+      encryptionKey: runtime.email.outboxEncryptionKey,
+      clientAppUrl: runtime.clientAppUrl || 'http://127.0.0.1:5001',
+    }))
+  }
+  if (!getJob('billing.webhooks.process')) {
+    const processor = createBillingWebhookProcessor({ maxAttempts: runtime.jobs.maxAttempts || 8 })
+    registerJob(createBillingWebhookJob({
+      enabled: runtime.jobs.scheduledEnabled && runtime.jobs.billingProcessingEnabled,
+      process: processor.drain,
+      intervalMilliseconds: runtime.jobs.billingProcessingIntervalMilliseconds,
+    }))
+  }
+  if (!getJob('billing.lifecycle.evaluate')) {
+    registerJob(createBillingLifecycleJob({
+      enabled: runtime.jobs.scheduledEnabled && runtime.jobs.billingProcessingEnabled,
+      sweep: sweepBillingLifecycle,
+      intervalMilliseconds: runtime.jobs.billingLifecycleIntervalMilliseconds,
+      write: runtime.jobs.billingProcessingEnabled,
+      reminderWrites: runtime.jobs.billingReminderWritesEnabled,
       encryptionKey: runtime.email.outboxEncryptionKey,
       clientAppUrl: runtime.clientAppUrl || 'http://127.0.0.1:5001',
     }))

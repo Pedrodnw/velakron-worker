@@ -123,6 +123,16 @@ const loadConfig = () => {
     false,
     'VELAKRON_INSPECTION_REMINDER_WRITES_ENABLED',
   )
+  const billingProcessingEnabled = parseBoolean(
+    process.env.VELAKRON_BILLING_PROCESSING_ENABLED,
+    false,
+    'VELAKRON_BILLING_PROCESSING_ENABLED',
+  )
+  const billingReminderWritesEnabled = parseBoolean(
+    process.env.VELAKRON_BILLING_REMINDER_WRITES_ENABLED,
+    false,
+    'VELAKRON_BILLING_REMINDER_WRITES_ENABLED',
+  )
   if (scheduledJobsEnabled && !jobsEnabled) {
     throw new Error('VELAKRON_JOBS_ENABLED must be true when scheduled jobs are enabled')
   }
@@ -137,6 +147,12 @@ const loadConfig = () => {
   }
   if (inspectionReminderWritesEnabled && !scheduledJobsEnabled) {
     throw new Error('VELAKRON_SCHEDULED_JOBS_ENABLED must be true when inspection reminder writes are enabled')
+  }
+  if (billingProcessingEnabled && !scheduledJobsEnabled) {
+    throw new Error('VELAKRON_SCHEDULED_JOBS_ENABLED must be true when billing processing is enabled')
+  }
+  if (billingReminderWritesEnabled && !billingProcessingEnabled) {
+    throw new Error('VELAKRON_BILLING_PROCESSING_ENABLED must be true when billing reminder writes are enabled')
   }
 
   const emailAdapter = String(process.env.VELAKRON_EMAIL_ADAPTER || 'development')
@@ -156,7 +172,7 @@ const loadConfig = () => {
   if (!/^https?:\/\/[^\s]+$/i.test(clientAppUrl) || (nodeEnv === 'production' && !clientAppUrl.startsWith('https://'))) {
     throw new Error('VELAKRON_CLIENT_APP_URL must be an HTTPS URL in production')
   }
-  if ((partReminderWritesEnabled || inspectionReminderWritesEnabled) && !validOutboxEncryptionKey(outboxEncryptionKey)) {
+  if ((partReminderWritesEnabled || inspectionReminderWritesEnabled || billingReminderWritesEnabled) && !validOutboxEncryptionKey(outboxEncryptionKey)) {
     throw new Error('VELAKRON_OUTBOX_ENCRYPTION_KEY is required when reminder writes are enabled')
   }
   const gmailTokenFile = path.resolve(
@@ -282,6 +298,8 @@ const loadConfig = () => {
       maintenanceWritesEnabled,
       partReminderWritesEnabled,
       inspectionReminderWritesEnabled,
+      billingProcessingEnabled,
+      billingReminderWritesEnabled,
       instanceId: String(process.env.VELAKRON_WORKER_INSTANCE_ID || 'local-worker'),
       outboxPollMilliseconds: parsePositiveNumber(
         process.env.VELAKRON_OUTBOX_POLL_MS,
@@ -322,6 +340,16 @@ const loadConfig = () => {
         process.env.VELAKRON_INSPECTION_REMINDER_INTERVAL_MS,
         60 * 60 * 1000,
         'VELAKRON_INSPECTION_REMINDER_INTERVAL_MS',
+      ),
+      billingProcessingIntervalMilliseconds: parsePositiveNumber(
+        process.env.VELAKRON_BILLING_PROCESSING_INTERVAL_MS,
+        60 * 1000,
+        'VELAKRON_BILLING_PROCESSING_INTERVAL_MS',
+      ),
+      billingLifecycleIntervalMilliseconds: parsePositiveNumber(
+        process.env.VELAKRON_BILLING_LIFECYCLE_INTERVAL_MS,
+        60 * 60 * 1000,
+        'VELAKRON_BILLING_LIFECYCLE_INTERVAL_MS',
       ),
     }),
     attention: Object.freeze({

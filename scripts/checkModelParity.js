@@ -19,6 +19,8 @@ const serverPartCollaboration = require('../../new-server/models/PartCollaborati
 const workerPartCollaboration = require('../models/PartCollaboration')
 const serverInspection = require('../../new-server/models/InspectionExecution')
 const workerInspection = require('../models/InspectionExecution')
+const serverBilling = require('../../new-server/models/BillingModels')
+const workerBilling = require('../models/BillingModels')
 
 const serializableOptions = options => {
   const seen = new WeakSet()
@@ -72,6 +74,14 @@ const checkModelParity = () => {
     ['InspectionResult', serverInspection.createInspectionResultSchema, workerInspection.createInspectionResultSchema],
     ['InspectionSubmission', serverInspection.createInspectionSubmissionSchema, workerInspection.createInspectionSubmissionSchema],
     ['InspectionImport', serverInspection.createInspectionImportSchema, workerInspection.createInspectionImportSchema],
+    ['BillingPlan', serverBilling.createBillingPlanSchema, workerBilling.createBillingPlanSchema],
+    ['BillingAccount', serverBilling.createBillingAccountSchema, workerBilling.createBillingAccountSchema],
+    ['BillingSubscription', serverBilling.createBillingSubscriptionSchema, workerBilling.createBillingSubscriptionSchema],
+    ['BillingPilotOffer', serverBilling.createBillingPilotOfferSchema, workerBilling.createBillingPilotOfferSchema],
+    ['BillingInvoice', serverBilling.createBillingInvoiceSchema, workerBilling.createBillingInvoiceSchema],
+    ['BillingPaymentMethod', serverBilling.createBillingPaymentMethodSchema, workerBilling.createBillingPaymentMethodSchema],
+    ['BillingWebhookEvent', serverBilling.createBillingWebhookEventSchema, workerBilling.createBillingWebhookEventSchema],
+    ['BillingOperation', serverBilling.createBillingOperationSchema, workerBilling.createBillingOperationSchema],
   ]
   for (const [name, serverFactory, workerFactory] of pairs) {
     assert.deepEqual(

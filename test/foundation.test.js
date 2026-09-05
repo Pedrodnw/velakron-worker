@@ -19,8 +19,11 @@ describe('worker foundation', () => {
     'VELAKRON_SCHEDULED_JOBS_ENABLED',
     'VELAKRON_ATTENTION_WRITES_ENABLED',
     'VELAKRON_MAINTENANCE_WRITES_ENABLED',
+    'VELAKRON_BILLING_PROCESSING_ENABLED',
+    'VELAKRON_BILLING_REMINDER_WRITES_ENABLED',
     'VELAKRON_EMAIL_ADAPTER',
     'VELAKRON_EMAIL_DELIVERY_ENABLED',
+    'VELAKRON_OUTBOX_ENCRYPTION_KEY',
     'VELAKRON_MALWARE_SCANNER_ADAPTER',
     'VELAKRON_MALWARE_SCANNING_ENABLED',
   ]
@@ -34,8 +37,11 @@ describe('worker foundation', () => {
     process.env.VELAKRON_SCHEDULED_JOBS_ENABLED = 'false'
     process.env.VELAKRON_ATTENTION_WRITES_ENABLED = 'false'
     process.env.VELAKRON_MAINTENANCE_WRITES_ENABLED = 'false'
+    process.env.VELAKRON_BILLING_PROCESSING_ENABLED = 'false'
+    process.env.VELAKRON_BILLING_REMINDER_WRITES_ENABLED = 'false'
     process.env.VELAKRON_EMAIL_ADAPTER = 'development'
     process.env.VELAKRON_EMAIL_DELIVERY_ENABLED = 'false'
+    process.env.VELAKRON_OUTBOX_ENCRYPTION_KEY = ''
     process.env.VELAKRON_MALWARE_SCANNER_ADAPTER = 'disabled'
     process.env.VELAKRON_MALWARE_SCANNING_ENABLED = 'false'
     clearJobsForTest()
@@ -54,6 +60,15 @@ describe('worker foundation', () => {
     const scheduler = createScheduler({ config })
     expect(await scheduler.start()).to.equal(false)
     expect(scheduler.getStatus()).to.deep.equal({ enabled: false, running: false })
+  })
+
+  it('requires scheduled processing before billing lifecycle writes are enabled', () => {
+    process.env.VELAKRON_BILLING_PROCESSING_ENABLED = 'true'
+    expect(() => loadConfig()).to.throw('VELAKRON_SCHEDULED_JOBS_ENABLED must be true')
+    process.env.VELAKRON_SCHEDULED_JOBS_ENABLED = 'true'
+    process.env.VELAKRON_JOBS_ENABLED = 'true'
+    const config = loadConfig()
+    expect(config.jobs).to.include({ billingProcessingEnabled: true, billingReminderWritesEnabled: false })
   })
 
   it('refuses a non-Velakron database', () => {

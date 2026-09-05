@@ -42,6 +42,12 @@ Inspection reminders are separately gated. Evaluation uses
 require `VELAKRON_INSPECTION_REMINDER_WRITES_ENABLED=true`. Messages are generic
 and omit technical data. The default remains no reminder writes.
 
+Stripe webhook projections and billing lifecycle checks are separately gated
+by `VELAKRON_BILLING_PROCESSING_ENABLED`. Customer billing reminders additionally
+require `VELAKRON_BILLING_REMINDER_WRITES_ENABLED` and the encrypted email outbox.
+Both switches default to false, so local and test workers cannot change billing
+access or send billing email unless the operator enables them explicitly.
+
 The complete one-time Gmail setup and rollback procedure is in
 [`docs/operations/gmail-prototype.md`](../docs/operations/gmail-prototype.md).
 
