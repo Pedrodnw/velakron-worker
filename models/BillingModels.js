@@ -144,6 +144,7 @@ const createBillingInvoiceSchema = () => {
     organization: { type: Schema.Types.ObjectId, ref: 'Organization', required: true, index: true },
     billing_account: { type: Schema.Types.ObjectId, ref: 'BillingAccount', required: true, index: true },
     subscription: { type: Schema.Types.ObjectId, ref: 'BillingSubscription', default: null, index: true },
+    provider_subscription_id: { type: String, trim: true, maxlength: 320, default: null, select: false },
     provider_invoice_id: { type: String, required: true, trim: true, maxlength: 320 },
     number: { type: String, trim: true, maxlength: 120, default: '' },
     status: { type: String, enum: ['draft', 'open', 'paid', 'void', 'uncollectible'], required: true, index: true },
@@ -167,6 +168,7 @@ const createBillingInvoiceSchema = () => {
     optimisticConcurrency: true,
   })
   schema.index({ provider_invoice_id: 1 }, { unique: true })
+  schema.index({ provider_subscription_id: 1 })
   schema.index({ organization: 1, created_at: -1 })
   schema.index({ status: 1, due_at: 1 })
   return schema

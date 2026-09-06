@@ -20,14 +20,24 @@ describe('billing worker lifecycle', () => {
     const invoice = invoiceProjection({
       id: 'in_123', status: 'paid', currency: 'usd', subtotal: 1500, total: 1500,
       amount_due: 0, amount_paid: 1500, created: 1_900_000_000,
-    }, { organizationId: 'org', accountId: 'account', subscriptionId: 'subscription' })
-    expect(invoice).to.include({ provider_invoice_id: 'in_123', total_cents: 1500, amount_paid_cents: 1500 })
+    }, {
+      organizationId: 'org',
+      accountId: 'account',
+      subscriptionId: 'subscription',
+      providerSubscriptionId: 'sub_123',
+    })
+    expect(invoice).to.include({
+      provider_invoice_id: 'in_123',
+      provider_subscription_id: 'sub_123',
+      total_cents: 1500,
+      amount_paid_cents: 1500,
+    })
     expect(stripeDate(1_900_000_000)).to.be.instanceOf(Date)
 
     const payment = paymentMethodProjection({
       id: 'pm_123', type: 'card', card: { brand: 'visa', last4: '4242', exp_month: 4, exp_year: 2030, cvc: '999' },
-    }, { organizationId: 'org', accountId: 'account' })
-    expect(payment).to.include({ type: 'card', brand: 'visa', last4: '4242', expiry_month: 4, expiry_year: 2030 })
+    }, { organizationId: 'org', accountId: 'account', isDefault: true })
+    expect(payment).to.include({ type: 'card', brand: 'visa', last4: '4242', expiry_month: 4, expiry_year: 2030, is_default: true })
     expect(payment).not.to.have.property('cvc')
   })
 

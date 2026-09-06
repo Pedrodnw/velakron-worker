@@ -53,10 +53,16 @@ const organizationIdFrom = object => {
   return validObjectId(value) ? String(value) : null
 }
 
-const invoiceProjection = (invoice, { organizationId, accountId, subscriptionId }) => ({
+const invoiceProjection = (invoice, {
+  organizationId,
+  accountId,
+  subscriptionId,
+  providerSubscriptionId,
+}) => ({
   organization: organizationId,
   billing_account: accountId,
   subscription: subscriptionId || null,
+  provider_subscription_id: providerSubscriptionId || null,
   provider_invoice_id: invoice.id,
   number: String(invoice.number || ''),
   status: ['draft', 'open', 'paid', 'void', 'uncollectible'].includes(invoice.status) ? invoice.status : 'open',
@@ -77,7 +83,7 @@ const invoiceProjection = (invoice, { organizationId, accountId, subscriptionId 
   last_provider_sync_at: new Date(),
 })
 
-const paymentMethodProjection = (method, { organizationId, accountId }) => {
+const paymentMethodProjection = (method, { organizationId, accountId, isDefault = false }) => {
   const details = method.card || method.us_bank_account || {}
   return {
     organization: organizationId,
@@ -89,7 +95,7 @@ const paymentMethodProjection = (method, { organizationId, accountId }) => {
     expiry_month: details.exp_month || null,
     expiry_year: details.exp_year || null,
     bank_name: String(details.bank_name || ''),
-    is_default: false,
+    is_default: isDefault,
     removed_at: null,
     last_provider_sync_at: new Date(),
   }
@@ -99,9 +105,9 @@ const accountForObject = async (object, models) => {
   const customerId = providerId(object?.customer)
   const organizationId = organizationIdFrom(object)
   const account = organizationId
-    ? await models.BillingAccount.findOne({ organization: organizationId }).select('+provider_customer_id')
+    ? await models.BillingAccount.findOne({ organization: organizationId }).select('+provider_customer_id +provider_metadata')
     : customerId
-      ? await models.BillingAccount.findOne({ provider: 'stripe', provider_customer_id: customerId }).select('+provider_customer_id')
+      ? await models.BillingAccount.findOne({ provider: 'stripe', provider_customer_id: customerId }).select('+provider_customer_id +provider_metadata')
       : null
   if (!account) throw Object.assign(new Error('Billing account could not be matched safely'), { code: 'BILLING_ACCOUNT_NOT_FOUND' })
   if (customerId && !account.provider_customer_id) account.provider_customer_id = customerId
@@ -168,6 +174,30 @@ const upsertSubscription = async (object, account, models) => {
     },
     { new: true, upsert: true, setDefaultsOnInsert: true },
   ).select('+provider_subscription_id +provider_subscription_item_id +provider_price_id')
+  await models.BillingInvoice.updateMany({
+    organization: account.organization,
+    provider_subscription_id: subscriptionId,
+    subscription: null,
+  }, { $set: { subscription: subscription._id } })
+  const hasDefaultPaymentMethod = Object.prototype.hasOwnProperty.call(object, 'default_payment_method')
+  const defaultPaymentMethodId = providerId(object.default_payment_method)
+  if (hasDefaultPaymentMethod) {
+    const providerMetadata = { ...(account.provider_metadata || {}) }
+    if (defaultPaymentMethodId) providerMetadata.default_payment_method_id = defaultPaymentMethodId
+    else delete providerMetadata.default_payment_method_id
+    account.provider_metadata = Object.keys(providerMetadata).length ? providerMetadata : undefined
+    await models.BillingPaymentMethod.updateMany({
+      billing_account: account._id,
+      removed_at: null,
+    }, { $set: { is_default: false } })
+    if (defaultPaymentMethodId) {
+      await models.BillingPaymentMethod.updateOne({
+        billing_account: account._id,
+        provider_payment_method_id: defaultPaymentMethodId,
+        removed_at: null,
+      }, { $set: { is_default: true } })
+    }
+  }
   account.status = ['past_due', 'unpaid'].includes(status) ? 'delinquent' : status === 'canceled' ? 'closed' : 'active'
   if (!['past_due', 'unpaid'].includes(status)) {
     account.access_mode = 'full'
@@ -206,7 +236,14 @@ const handleInvoice = async (invoice, eventType, models, now) => {
     : null
   await models.BillingInvoice.findOneAndUpdate(
     { provider_invoice_id: invoice.id },
-    { $set: invoiceProjection(invoice, { organizationId: account.organization, accountId: account._id, subscriptionId: subscription?._id }) },
+    {
+      $set: invoiceProjection(invoice, {
+        organizationId: account.organization,
+        accountId: account._id,
+        subscriptionId: subscription?._id,
+        providerSubscriptionId,
+      }),
+    },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   )
   if (eventType === 'invoice.payment_failed') {
@@ -247,9 +284,16 @@ const processPayload = async ({ eventType, object, models, now }) => {
     if (eventType === 'payment_method.detached') {
       await models.BillingPaymentMethod.updateOne({ provider_payment_method_id: object.id }, { $set: { removed_at: now, is_default: false } })
     } else {
+      const isDefault = account.provider_metadata?.default_payment_method_id === object.id
       await models.BillingPaymentMethod.findOneAndUpdate(
         { provider_payment_method_id: object.id },
-        { $set: paymentMethodProjection(object, { organizationId: account.organization, accountId: account._id }) },
+        {
+          $set: paymentMethodProjection(object, {
+            organizationId: account.organization,
+            accountId: account._id,
+            isDefault,
+          }),
+        },
         { upsert: true, new: true, setDefaultsOnInsert: true },
       )
     }
