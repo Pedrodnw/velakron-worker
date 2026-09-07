@@ -2,6 +2,7 @@ const mongoose = require('mongoose')
 const AttentionCondition = require('../models/AttentionCondition')
 const SupplierAssignment = require('../models/SupplierAssignment')
 const { stageIndex } = require('./productionWorkflow')
+const { actionSummary } = require('./attentionResponsibility')
 
 const POLICY_VERSION = 'attention-v1'
 const POLICY = Object.freeze({
@@ -148,11 +149,12 @@ const synchronizeAttention = async ({ record, now = new Date(), session = null, 
     : null
   const desired = evaluateComputedAttention({ record, assignment, now, policy })
   const desiredKeys = desired.map(item => item.stable_key)
+  const forecastRiskRemains = desired.some(item => ['FORECAST_AFTER_REQUIRED', 'REQUIRED_DATE_PASSED'].includes(item.code))
   const computedFilter = {
     production_record: record._id,
     source: 'computed',
     active: true,
-    'evidence.sticky': { $ne: true },
+    ...(forecastRiskRemains ? { 'evidence.sticky': mongoose.trusted({ $ne: true }) } : {}),
   }
   await AttentionCondition.updateMany({
     ...computedFilter,
@@ -193,8 +195,9 @@ const synchronizeAttention = async ({ record, now = new Date(), session = null, 
     }
   }
 
-  const active = await AttentionCondition.find({ production_record: record._id, active: true }).session(session)
+  const active = await AttentionCondition.find({ oem_organization: record.oem_organization, $or: [{ production_record: record._id }, { related_production_records: record._id }], active: true }).session(session)
   Object.assign(record, summarizeAttention(record, active, now))
+  Object.assign(record, actionSummary(record, active))
   const sharedSummary = summarizeAttention(record, active.filter(item => item.visibility === 'shared'), now)
   record.shared_schedule_health = sharedSummary.schedule_health
   record.shared_highest_attention_severity = sharedSummary.highest_attention_severity

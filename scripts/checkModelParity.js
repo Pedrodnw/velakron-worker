@@ -21,6 +21,10 @@ const serverInspection = require('../../new-server/models/InspectionExecution')
 const workerInspection = require('../models/InspectionExecution')
 const serverBilling = require('../../new-server/models/BillingModels')
 const workerBilling = require('../models/BillingModels')
+const serverCollaborationNotification = require('../../new-server/models/CollaborationNotification')
+const workerCollaborationNotification = require('../models/CollaborationNotification')
+const fs = require('node:fs')
+const path = require('node:path')
 
 const serializableOptions = options => {
   const seen = new WeakSet()
@@ -59,7 +63,13 @@ const describeSchema = schema => ({
 })
 
 const checkModelParity = () => {
+  // Shared nested definitions include validators, defaults, middleware and
+  // composition that a shallow path comparison cannot prove equivalent.
+  for (const file of ['FormalEscalationData.js', 'collaborationIntegrity.js', 'PartCollaboration.js', 'AttentionCondition.js', 'ProductionRecord.js', 'CollaborationNotification.js']) {
+    assert.equal(fs.readFileSync(path.join(__dirname, '../../new-server/models', file), 'utf8'), fs.readFileSync(path.join(__dirname, '../models', file), 'utf8'), `${file} source differs between server and worker`)
+  }
   const pairs = [
+    ['CollaborationNotification', serverCollaborationNotification.createCollaborationNotificationSchema, workerCollaborationNotification.createCollaborationNotificationSchema],
     ['OutboxEvent', serverOutbox.createOutboxEventSchema, workerOutbox.createOutboxEventSchema],
     ['JobLease', serverLease.createJobLeaseSchema, workerLease.createJobLeaseSchema],
     ['Attachment', serverAttachment.createAttachmentSchema, workerAttachment.createAttachmentSchema],
