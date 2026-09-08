@@ -12,6 +12,8 @@ const { createPartWorkspaceReminderJob } = require('./partWorkspaceReminders')
 const { sweepPartWorkspaceReminders } = require('../services/partWorkspaceReminders')
 const { createInspectionReminderJob } = require('./inspectionReminders')
 const { sweepInspectionReminders } = require('../services/inspectionReminders')
+const { createNdaRenewalReminderJob } = require('./ndaRenewalReminders')
+const { sweepNdaRenewalReminders } = require('../services/ndaRenewalReminders')
 const { createBillingLifecycleJob, createBillingWebhookJob } = require('./billing')
 const { createBillingWebhookProcessor } = require('../services/billingWebhookProcessor')
 const { sweepBillingLifecycle } = require('../services/billingLifecycle')
@@ -25,6 +27,8 @@ const registerDefaultJobs = ({ emailProvider, config, malwareScanner = null }) =
       maintenanceWritesEnabled: false,
       partReminderWritesEnabled: false,
       inspectionReminderWritesEnabled: false,
+      ndaRemindersEnabled: false,
+      ndaReminderWritesEnabled: false,
       billingProcessingEnabled: false,
       billingReminderWritesEnabled: false,
       attentionIntervalMilliseconds: 15 * 60 * 1000,
@@ -32,6 +36,7 @@ const registerDefaultJobs = ({ emailProvider, config, malwareScanner = null }) =
       tokenCleanupIntervalMilliseconds: 6 * 60 * 60 * 1000,
       partReminderIntervalMilliseconds: 60 * 60 * 1000,
       inspectionReminderIntervalMilliseconds: 60 * 60 * 1000,
+      ndaReminderIntervalMilliseconds: 6 * 60 * 60 * 1000,
       billingProcessingIntervalMilliseconds: 60 * 1000,
       billingLifecycleIntervalMilliseconds: 60 * 60 * 1000,
     },
@@ -92,6 +97,16 @@ const registerDefaultJobs = ({ emailProvider, config, malwareScanner = null }) =
       sweep: sweepInspectionReminders,
       intervalMilliseconds: runtime.jobs.inspectionReminderIntervalMilliseconds,
       write: runtime.jobs.inspectionReminderWritesEnabled,
+      encryptionKey: runtime.email.outboxEncryptionKey,
+      clientAppUrl: runtime.clientAppUrl || 'http://127.0.0.1:5001',
+    }))
+  }
+  if (!getJob('nda_renewal.reminders.evaluate')) {
+    registerJob(createNdaRenewalReminderJob({
+      enabled: runtime.jobs.scheduledEnabled && runtime.jobs.ndaRemindersEnabled,
+      sweep: sweepNdaRenewalReminders,
+      intervalMilliseconds: runtime.jobs.ndaReminderIntervalMilliseconds,
+      write: runtime.jobs.ndaReminderWritesEnabled,
       encryptionKey: runtime.email.outboxEncryptionKey,
       clientAppUrl: runtime.clientAppUrl || 'http://127.0.0.1:5001',
     }))

@@ -123,6 +123,16 @@ const loadConfig = () => {
     false,
     'VELAKRON_INSPECTION_REMINDER_WRITES_ENABLED',
   )
+  const ndaRemindersEnabled = parseBoolean(
+    process.env.VELAKRON_NDA_REMINDERS_ENABLED,
+    false,
+    'VELAKRON_NDA_REMINDERS_ENABLED',
+  )
+  const ndaReminderWritesEnabled = parseBoolean(
+    process.env.VELAKRON_NDA_REMINDER_WRITES_ENABLED,
+    false,
+    'VELAKRON_NDA_REMINDER_WRITES_ENABLED',
+  )
   const billingProcessingEnabled = parseBoolean(
     process.env.VELAKRON_BILLING_PROCESSING_ENABLED,
     false,
@@ -148,6 +158,12 @@ const loadConfig = () => {
   if (inspectionReminderWritesEnabled && !scheduledJobsEnabled) {
     throw new Error('VELAKRON_SCHEDULED_JOBS_ENABLED must be true when inspection reminder writes are enabled')
   }
+  if (ndaRemindersEnabled && !scheduledJobsEnabled) {
+    throw new Error('VELAKRON_SCHEDULED_JOBS_ENABLED must be true when NDA reminders are enabled')
+  }
+  if (ndaReminderWritesEnabled && !ndaRemindersEnabled) {
+    throw new Error('VELAKRON_NDA_REMINDERS_ENABLED must be true when NDA reminder writes are enabled')
+  }
   if (billingProcessingEnabled && !scheduledJobsEnabled) {
     throw new Error('VELAKRON_SCHEDULED_JOBS_ENABLED must be true when billing processing is enabled')
   }
@@ -172,7 +188,7 @@ const loadConfig = () => {
   if (!/^https?:\/\/[^\s]+$/i.test(clientAppUrl) || (nodeEnv === 'production' && !clientAppUrl.startsWith('https://'))) {
     throw new Error('VELAKRON_CLIENT_APP_URL must be an HTTPS URL in production')
   }
-  if ((partReminderWritesEnabled || inspectionReminderWritesEnabled || billingReminderWritesEnabled) && !validOutboxEncryptionKey(outboxEncryptionKey)) {
+  if ((partReminderWritesEnabled || inspectionReminderWritesEnabled || ndaReminderWritesEnabled || billingReminderWritesEnabled) && !validOutboxEncryptionKey(outboxEncryptionKey)) {
     throw new Error('VELAKRON_OUTBOX_ENCRYPTION_KEY is required when reminder writes are enabled')
   }
   const gmailTokenFile = path.resolve(
@@ -298,6 +314,8 @@ const loadConfig = () => {
       maintenanceWritesEnabled,
       partReminderWritesEnabled,
       inspectionReminderWritesEnabled,
+      ndaRemindersEnabled,
+      ndaReminderWritesEnabled,
       billingProcessingEnabled,
       billingReminderWritesEnabled,
       instanceId: String(process.env.VELAKRON_WORKER_INSTANCE_ID || 'local-worker'),
@@ -340,6 +358,11 @@ const loadConfig = () => {
         process.env.VELAKRON_INSPECTION_REMINDER_INTERVAL_MS,
         60 * 60 * 1000,
         'VELAKRON_INSPECTION_REMINDER_INTERVAL_MS',
+      ),
+      ndaReminderIntervalMilliseconds: parsePositiveNumber(
+        process.env.VELAKRON_NDA_REMINDER_INTERVAL_MS,
+        6 * 60 * 60 * 1000,
+        'VELAKRON_NDA_REMINDER_INTERVAL_MS',
       ),
       billingProcessingIntervalMilliseconds: parsePositiveNumber(
         process.env.VELAKRON_BILLING_PROCESSING_INTERVAL_MS,

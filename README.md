@@ -42,6 +42,12 @@ Inspection reminders are separately gated. Evaluation uses
 require `VELAKRON_INSPECTION_REMINDER_WRITES_ENABLED=true`. Messages are generic
 and omit technical data. The default remains no reminder writes.
 
+Relationship NDA renewal reminders run in the worker only when
+`VELAKRON_NDA_REMINDERS_ENABLED=true`. Encrypted reminder writes require the
+separate `VELAKRON_NDA_REMINDER_WRITES_ENABLED=true` switch. The job preserves
+the API's 60-, 30-, 7-, and expiration-day milestones and idempotency keys so a
+deployment handoff cannot duplicate reminders.
+
 Stripe webhook projections and billing lifecycle checks are separately gated
 by `VELAKRON_BILLING_PROCESSING_ENABLED`. Customer billing reminders additionally
 require `VELAKRON_BILLING_REMINDER_WRITES_ENABLED` and the encrypted email outbox.

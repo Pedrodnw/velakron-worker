@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "cross-env TZ=America/New_York NODE_ENV=development nodemon server.js",
-    "start": "cross-env TZ=America/New_York NODE_ENV=production node server.js",
+    "start": "node server.js",
     "test": "cross-env TZ=America/New_York NODE_ENV=test mocha \"test/**/*.test.js\" --exit",
     "check:syntax": "node scripts/checkSyntax.js",
     "check:models": "node scripts/checkModelParity.js",

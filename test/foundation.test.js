@@ -19,6 +19,8 @@ describe('worker foundation', () => {
     'VELAKRON_SCHEDULED_JOBS_ENABLED',
     'VELAKRON_ATTENTION_WRITES_ENABLED',
     'VELAKRON_MAINTENANCE_WRITES_ENABLED',
+    'VELAKRON_NDA_REMINDERS_ENABLED',
+    'VELAKRON_NDA_REMINDER_WRITES_ENABLED',
     'VELAKRON_BILLING_PROCESSING_ENABLED',
     'VELAKRON_BILLING_REMINDER_WRITES_ENABLED',
     'VELAKRON_EMAIL_ADAPTER',
@@ -37,6 +39,8 @@ describe('worker foundation', () => {
     process.env.VELAKRON_SCHEDULED_JOBS_ENABLED = 'false'
     process.env.VELAKRON_ATTENTION_WRITES_ENABLED = 'false'
     process.env.VELAKRON_MAINTENANCE_WRITES_ENABLED = 'false'
+    process.env.VELAKRON_NDA_REMINDERS_ENABLED = 'false'
+    process.env.VELAKRON_NDA_REMINDER_WRITES_ENABLED = 'false'
     process.env.VELAKRON_BILLING_PROCESSING_ENABLED = 'false'
     process.env.VELAKRON_BILLING_REMINDER_WRITES_ENABLED = 'false'
     process.env.VELAKRON_EMAIL_ADAPTER = 'development'
@@ -69,6 +73,15 @@ describe('worker foundation', () => {
     process.env.VELAKRON_JOBS_ENABLED = 'true'
     const config = loadConfig()
     expect(config.jobs).to.include({ billingProcessingEnabled: true, billingReminderWritesEnabled: false })
+  })
+
+  it('requires explicit scheduling and reminder gates before NDA email writes', () => {
+    process.env.VELAKRON_NDA_REMINDERS_ENABLED = 'true'
+    expect(() => loadConfig()).to.throw('VELAKRON_SCHEDULED_JOBS_ENABLED must be true')
+    process.env.VELAKRON_SCHEDULED_JOBS_ENABLED = 'true'
+    process.env.VELAKRON_JOBS_ENABLED = 'true'
+    process.env.VELAKRON_NDA_REMINDER_WRITES_ENABLED = 'true'
+    expect(() => loadConfig()).to.throw('VELAKRON_OUTBOX_ENCRYPTION_KEY is required')
   })
 
   it('refuses a non-Velakron database', () => {
