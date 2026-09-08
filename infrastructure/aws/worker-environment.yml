@@ -1,0 +1,337 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Velakron production background worker Elastic Beanstalk environment.
+
+Parameters:
+  ApplicationName:
+    Type: String
+    Default: velakron-worker
+  ApplicationVersionLabel:
+    Type: String
+    Description: Immutable worker application version label.
+  DeployedApplicationVersionLabel:
+    Type: String
+    Default: ''
+    Description: Existing Elastic Beanstalk version to preserve during infrastructure-only updates.
+  ArtifactBucketName:
+    Type: String
+  ArtifactObjectKey:
+    Type: String
+  EnvironmentName:
+    Type: String
+    Default: velakron-worker-production
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC used by the worker instance.
+  InstanceSubnets:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Private subnets for the worker; outbound traffic uses the fixed NAT address.
+  PlatformArn:
+    Type: String
+    Default: arn:aws:elasticbeanstalk:us-east-2::platform/Node.js 24 running on 64bit Amazon Linux 2023/6.11.7
+  ElasticBeanstalkServiceRoleArn:
+    Type: String
+  WorkerInstanceProfileName:
+    Type: String
+  WorkerSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+  ApplicationSecretArn:
+    Type: String
+    NoEcho: true
+  FileBucketName:
+    Type: String
+  GmailClientId:
+    Type: String
+    NoEcho: true
+  GmailAuthorizedMailbox:
+    Type: String
+    NoEcho: true
+  GmailSender:
+    Type: String
+    Default: app@velakron.com
+  GmailReplyTo:
+    Type: String
+    Default: app@velakron.com
+  JobsEnabled:
+    Type: String
+    Default: 'false'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Master worker execution switch.
+  ScheduledJobsEnabled:
+    Type: String
+    Default: 'false'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Enables scheduled job evaluation. Individual write gates remain authoritative.
+  BillingProcessingEnabled:
+    Type: String
+    Default: 'false'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Processes durable Stripe webhook events and billing lifecycle state.
+  BillingReminderWritesEnabled:
+    Type: String
+    Default: 'false'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Enqueues billing reminder messages. Keep disabled until email outbox validation is complete.
+
+Conditions:
+  PreserveDeployedApplicationVersion: !Not [!Equals [!Ref DeployedApplicationVersionLabel, '']]
+
+Resources:
+  WorkerApplication:
+    Type: AWS::ElasticBeanstalk::Application
+    Properties:
+      ApplicationName: !Ref ApplicationName
+      Description: Velakron production background worker
+      ResourceLifecycleConfig:
+        ServiceRole: !Ref ElasticBeanstalkServiceRoleArn
+        VersionLifecycleConfig:
+          MaxCountRule:
+            DeleteSourceFromS3: false
+            Enabled: true
+            MaxCount: 50
+
+  WorkerApplicationVersion:
+    Type: AWS::ElasticBeanstalk::ApplicationVersion
+    Properties:
+      ApplicationName: !Ref WorkerApplication
+      Description: !Sub Velakron worker ${ApplicationVersionLabel}
+      SourceBundle:
+        S3Bucket: !Ref ArtifactBucketName
+        S3Key: !Ref ArtifactObjectKey
+
+  WorkerEnvironment:
+    Type: AWS::ElasticBeanstalk::Environment
+    Properties:
+      ApplicationName: !Ref WorkerApplication
+      Description: Velakron production background worker with all writes disabled at initial launch
+      EnvironmentName: !Ref EnvironmentName
+      PlatformArn: !Ref PlatformArn
+      Tier:
+        Name: WebServer
+        Type: Standard
+        Version: '1.0'
+      VersionLabel: !If
+        - PreserveDeployedApplicationVersion
+        - !Ref DeployedApplicationVersionLabel
+        - !Ref WorkerApplicationVersion
+      OptionSettings:
+        - Namespace: aws:autoscaling:launchconfiguration
+          OptionName: DisableDefaultEC2SecurityGroup
+          Value: 'true'
+        - Namespace: aws:autoscaling:launchconfiguration
+          OptionName: DisableIMDSv1
+          Value: 'true'
+        - Namespace: aws:autoscaling:launchconfiguration
+          OptionName: IamInstanceProfile
+          Value: !Ref WorkerInstanceProfileName
+        - Namespace: aws:autoscaling:launchconfiguration
+          OptionName: MonitoringInterval
+          Value: 1 minute
+        - Namespace: aws:autoscaling:launchconfiguration
+          OptionName: SecurityGroups
+          Value: !Ref WorkerSecurityGroupId
+        - Namespace: aws:ec2:instances
+          OptionName: EnableSpot
+          Value: 'false'
+        - Namespace: aws:ec2:instances
+          OptionName: InstanceTypes
+          Value: t3.small
+        - Namespace: aws:ec2:instances
+          OptionName: SupportedArchitectures
+          Value: x86_64
+        - Namespace: aws:ec2:vpc
+          OptionName: VPCId
+          Value: !Ref VpcId
+        - Namespace: aws:ec2:vpc
+          OptionName: Subnets
+          Value: !Join [',', !Ref InstanceSubnets]
+        - Namespace: aws:ec2:vpc
+          OptionName: AssociatePublicIpAddress
+          Value: 'false'
+        - Namespace: aws:elasticbeanstalk:application
+          OptionName: Application Healthcheck URL
+          Value: /health
+        - Namespace: aws:elasticbeanstalk:environment
+          OptionName: EnvironmentType
+          Value: SingleInstance
+        - Namespace: aws:elasticbeanstalk:environment
+          OptionName: ServiceRole
+          Value: !Ref ElasticBeanstalkServiceRoleArn
+        - Namespace: aws:elasticbeanstalk:environment:proxy
+          OptionName: ProxyServer
+          Value: nginx
+        - Namespace: aws:elasticbeanstalk:cloudwatch:logs
+          OptionName: StreamLogs
+          Value: 'true'
+        - Namespace: aws:elasticbeanstalk:cloudwatch:logs
+          OptionName: DeleteOnTerminate
+          Value: 'false'
+        - Namespace: aws:elasticbeanstalk:cloudwatch:logs
+          OptionName: RetentionInDays
+          Value: '30'
+        - Namespace: aws:elasticbeanstalk:cloudwatch:logs:health
+          OptionName: HealthStreamingEnabled
+          Value: 'true'
+        - Namespace: aws:elasticbeanstalk:cloudwatch:logs:health
+          OptionName: DeleteOnTerminate
+          Value: 'false'
+        - Namespace: aws:elasticbeanstalk:cloudwatch:logs:health
+          OptionName: RetentionInDays
+          Value: '30'
+        - Namespace: aws:elasticbeanstalk:healthreporting:system
+          OptionName: SystemType
+          Value: enhanced
+        - Namespace: aws:elasticbeanstalk:hostmanager
+          OptionName: LogPublicationControl
+          Value: 'true'
+        - Namespace: aws:elasticbeanstalk:managedactions
+          OptionName: ManagedActionsEnabled
+          Value: 'true'
+        - Namespace: aws:elasticbeanstalk:managedactions
+          OptionName: PreferredStartTime
+          Value: TUE:01:50
+        - Namespace: aws:elasticbeanstalk:managedactions
+          OptionName: ServiceRoleForManagedUpdates
+          Value: !Ref ElasticBeanstalkServiceRoleArn
+        - Namespace: aws:elasticbeanstalk:managedactions:platformupdate
+          OptionName: InstanceRefreshEnabled
+          Value: 'true'
+        - Namespace: aws:elasticbeanstalk:managedactions:platformupdate
+          OptionName: UpdateLevel
+          Value: minor
+        - Namespace: aws:elasticbeanstalk:application:environmentsecrets
+          OptionName: MONGO_URI
+          Value: !Sub ${ApplicationSecretArn}:MONGO_URI
+        - Namespace: aws:elasticbeanstalk:application:environmentsecrets
+          OptionName: VELAKRON_GMAIL_CLIENT_SECRET
+          Value: !Sub ${ApplicationSecretArn}:VELAKRON_GMAIL_CLIENT_SECRET
+        - Namespace: aws:elasticbeanstalk:application:environmentsecrets
+          OptionName: VELAKRON_GMAIL_REFRESH_TOKEN
+          Value: !Sub ${ApplicationSecretArn}:VELAKRON_GMAIL_REFRESH_TOKEN
+        - Namespace: aws:elasticbeanstalk:application:environmentsecrets
+          OptionName: VELAKRON_OUTBOX_ENCRYPTION_KEY
+          Value: !Sub ${ApplicationSecretArn}:VELAKRON_OUTBOX_ENCRYPTION_KEY
+        - Namespace: aws:elasticbeanstalk:application:environmentsecrets
+          OptionName: VELAKRON_STRIPE_SECRET_KEY
+          Value: !Sub ${ApplicationSecretArn}:VELAKRON_STRIPE_SECRET_KEY
+        - Namespace: aws:elasticbeanstalk:application:environmentsecrets
+          OptionName: VELAKRON_STRIPE_WEBHOOK_SECRET
+          Value: !Sub ${ApplicationSecretArn}:VELAKRON_STRIPE_WEBHOOK_SECRET
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: NODE_ENV
+          Value: production
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: TZ
+          Value: America/New_York
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: HOST
+          Value: 0.0.0.0
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: MONGO_DB_NAME
+          Value: velakron
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: VELAKRON_CLIENT_APP_URL
+          Value: https://velakron.com
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: VELAKRON_AWS_ACCOUNT_ID
+          Value: !Ref AWS::AccountId
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: VELAKRON_AWS_REGION
+          Value: !Ref AWS::Region
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: VELAKRON_S3_BUCKET
+          Value: !Ref FileBucketName
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: VELAKRON_EMAIL_ADAPTER
+          Value: gmail
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: VELAKRON_EMAIL_DELIVERY_ENABLED
+          Value: 'false'
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: VELAKRON_GMAIL_CLIENT_ID
+          Value: !Ref GmailClientId
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: VELAKRON_GMAIL_AUTHORIZED_MAILBOX
+          Value: !Ref GmailAuthorizedMailbox
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: VELAKRON_GMAIL_SENDER
+          Value: !Ref GmailSender
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: VELAKRON_GMAIL_REPLY_TO
+          Value: !Ref GmailReplyTo
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: VELAKRON_GMAIL_FROM_NAME
+          Value: Velakron
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: VELAKRON_JOBS_ENABLED
+          Value: !Ref JobsEnabled
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: VELAKRON_SCHEDULED_JOBS_ENABLED
+          Value: !Ref ScheduledJobsEnabled
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: VELAKRON_ATTENTION_WRITES_ENABLED
+          Value: 'false'
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: VELAKRON_MAINTENANCE_WRITES_ENABLED
+          Value: 'false'
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: VELAKRON_PART_REMINDER_WRITES_ENABLED
+          Value: 'false'
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: VELAKRON_INSPECTION_REMINDER_WRITES_ENABLED
+          Value: 'false'
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: VELAKRON_NDA_REMINDERS_ENABLED
+          Value: 'false'
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: VELAKRON_NDA_REMINDER_WRITES_ENABLED
+          Value: 'false'
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: VELAKRON_NDA_REMINDER_INTERVAL_MS
+          Value: '21600000'
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: VELAKRON_BILLING_PROCESSING_ENABLED
+          Value: !Ref BillingProcessingEnabled
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: VELAKRON_BILLING_REMINDER_WRITES_ENABLED
+          Value: !Ref BillingReminderWritesEnabled
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: VELAKRON_MALWARE_SCANNER_ADAPTER
+          Value: disabled
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: VELAKRON_MALWARE_SCANNING_ENABLED
+          Value: 'false'
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: VELAKRON_ITAR_ENABLED
+          Value: 'false'
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: VELAKRON_ITAR_FIPS_ENDPOINT
+          Value: 'false'
+        - Namespace: aws:elasticbeanstalk:application:environment
+          OptionName: VELAKRON_ITAR_DATABASE_APPROVED
+          Value: 'false'
+      Tags:
+        - Key: Application
+          Value: Velakron
+        - Key: Environment
+          Value: production
+
+Outputs:
+  ApplicationName:
+    Value: !Ref WorkerApplication
+  ApplicationVersionLabel:
+    Value: !If
+      - PreserveDeployedApplicationVersion
+      - !Ref DeployedApplicationVersionLabel
+      - !Ref WorkerApplicationVersion
+  EnvironmentCname:
+    Value: !GetAtt WorkerEnvironment.EndpointURL
+  EnvironmentName:
+    Value: !Ref WorkerEnvironment
