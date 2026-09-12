@@ -39,6 +39,7 @@ const ATTENTION_WORKFLOW_ACTIONS = Object.freeze([
   'accept_resolution',
   'reject_resolution',
   'escalate_to_production_block',
+  'submit_affected_scope',
   'submit_containment',
   'submit_disposition',
   'approve_disposition',
@@ -144,7 +145,8 @@ const createAttentionConditionSchema = () => {
     if (!this.record_number) this.invalidate('record_number', 'A formal record number is required')
     if (!this.part_revision) this.invalidate('part_revision', 'A formal record requires its released revision')
     if (!this.supplier_organization) this.invalidate('supplier_organization', 'A formal record requires its supplier')
-    if (this.category === 'non_conformance' && !this.formal_data?.affected_scope) this.invalidate('formal_data.affected_scope', 'Affected scope is required')
+    const scopePending = this.category === 'non_conformance' && this.source === 'oem' && this.workflow_state === 'supplier_scope_required' && this.active && !this.terminal && this.current_actor_side === 'supplier'
+    if (this.category === 'non_conformance' && !this.formal_data?.affected_scope && !scopePending) this.invalidate('formal_data.affected_scope', 'Affected scope is required before containment')
     if (this.category !== 'production_block' && this.blocking) this.invalidate('blocking', 'Only a Production Block stops production')
     if (this.terminal && (this.active || this.blocking || this.current_actor_side !== 'none' || !this.oem_closure_approval)) this.invalidate('terminal', 'Terminal records require OEM approval and no active action')
     if (this.oem_closure_approval && (this.oem_closure_approval.actor.organization_type !== 'oem' || String(this.oem_closure_approval.actor.organization_id) !== String(this.oem_organization))) this.invalidate('oem_closure_approval', 'Closure requires the assigned OEM')

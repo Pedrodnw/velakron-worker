@@ -7,6 +7,7 @@ const ACTIONS = Object.freeze({
   confirm_production_stopped: { label: 'Confirm production stopped', side: 'supplier' },
   release_production: { label: 'Release production', side: 'oem' },
   acknowledge_resumption: { label: 'Acknowledge resumption', side: 'supplier' },
+  submit_affected_scope: { label: 'Confirm affected parts', side: 'supplier', data_kind: 'affected_scope' },
   submit_containment: { label: 'Confirm containment', side: 'supplier', data_kind: 'summary' },
   submit_investigation: { label: 'Submit investigation', side: 'supplier', data_kind: 'investigation' },
   submit_disposition: { label: 'Propose disposition', side: 'supplier', data_kind: 'disposition' },
@@ -30,6 +31,7 @@ const TRANSITIONS = Object.freeze({
     released_awaiting_supplier_acknowledgement: { acknowledge_resumption: 'closed_released' },
   },
   non_conformance: {
+    supplier_scope_required: { submit_affected_scope: 'supplier_containment_required' },
     supplier_containment_required: { submit_containment: 'supplier_investigation_required' },
     supplier_investigation_required: { submit_investigation: 'supplier_disposition_required' },
     supplier_disposition_required: { submit_disposition: 'awaiting_oem_disposition_approval' },
@@ -45,6 +47,7 @@ const STATE_LABELS = Object.freeze({
   stop_confirmation_required: 'Supplier must confirm production stopped',
   oem_release_required: 'Solution approved — OEM release required',
   released_awaiting_supplier_acknowledgement: 'Production released — supplier acknowledgement required',
+  supplier_scope_required: 'Supplier must confirm affected parts',
   supplier_containment_required: 'Supplier containment required',
   supplier_investigation_required: 'Supplier investigation required',
   supplier_disposition_required: 'Supplier disposition required',
@@ -76,7 +79,11 @@ const initialize = ({ category, initial = {}, creatorSide, quantity = null }) =>
   if (!CATEGORIES.includes(category)) fail('INVALID_FORMAL_CATEGORY', 'Choose Issue, Production Block, or Non-Conformance')
   const result = { workflow_version: FORMAL_VERSION, workflow_history: [], active: true, terminal: false, blocking: category === 'production_block', current_actor_side: 'supplier', formal_data: {} }
   result.workflow_state = { issue: 'supplier_resolution_required', production_block: 'stop_confirmation_required', non_conformance: 'supplier_containment_required' }[category]
-  if (category === 'non_conformance') result.formal_data.affected_scope = scope(initial.affected_scope, quantity)
+  if (category === 'non_conformance') {
+    // The OEM can report a concern before the supplier has established its extent.
+    if (creatorSide === 'oem' && !Object.hasOwn(initial, 'affected_scope')) result.workflow_state = 'supplier_scope_required'
+    else result.formal_data.affected_scope = scope(initial.affected_scope, quantity)
+  }
   if (initial.resolution != null) {
     if (category !== 'issue' || creatorSide !== 'supplier') fail('ACTION_NOT_AVAILABLE', 'Only a supplier-created Issue may include its initial resolution', 403)
     result.formal_data.resolution = resolution(initial.resolution)
@@ -85,7 +92,7 @@ const initialize = ({ category, initial = {}, creatorSide, quantity = null }) =>
   }
   return result
 }
-const apply = ({ condition, action, actor, data = {}, note = '', now = new Date(), idempotencyKey = '', requestHash = '' }) => {
+const apply = ({ condition, action, actor, data = {}, note = '', now = new Date(), idempotencyKey = '', requestHash = '', quantity = null }) => {
   if (terminal(condition)) fail('FORMAL_RECORD_TERMINAL', 'This formal record is permanently closed. Start a new case.', 409)
   const side = actorSide(condition, actor)
   if (!canMutate(actor) || !side) fail('FORBIDDEN', 'This action is not available to your role', 403)
@@ -93,10 +100,10 @@ const apply = ({ condition, action, actor, data = {}, note = '', now = new Date(
   const nextState = action === 'add_message' ? condition.workflow_state : TRANSITIONS[condition.category]?.[condition.workflow_state]?.[action]
   if (!definition || !nextState || side !== definition.side) fail('ACTION_NOT_AVAILABLE', 'That action is not available to your company at this workflow step', 409)
   const cleanNote = text(note, 'Comments', { optional: !definition.requires_note, max: 1000 })
-  const payload = stepData(action, data)
+  const payload = stepData(action, data, quantity)
   const fromState = condition.workflow_state
   condition.formal_data ||= {}
-  const field = { submit_resolution: 'resolution', submit_containment: 'containment', submit_investigation: 'investigation', submit_disposition: 'disposition', complete_corrective_action: 'corrective_action', submit_evidence: 'verification_evidence', verify_and_close: 'final_verification' }[action]
+  const field = { submit_affected_scope: 'affected_scope', submit_resolution: 'resolution', submit_containment: 'containment', submit_investigation: 'investigation', submit_disposition: 'disposition', complete_corrective_action: 'corrective_action', submit_evidence: 'verification_evidence', verify_and_close: 'final_verification' }[action]
   if (field) condition.formal_data[field] = payload
   const snapshot = { actor, occurred_at: now }
   if (action === 'confirm_production_stopped') condition.formal_data.stop_confirmation = snapshot

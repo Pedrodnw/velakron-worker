@@ -73,7 +73,8 @@ const scope = (value, productionQuantity = null) => {
     evidence_ids: ids(value.evidence_ids, 'evidence_ids'),
   }
 }
-const stepData = (action, value = {}) => {
+const stepData = (action, value = {}, productionQuantity = null) => {
+  if (action === 'submit_affected_scope') return scope(value, productionQuantity)
   if (action === 'submit_resolution') return resolution(value)
   if (action === 'submit_investigation') {
     exactKeys(value, ['owner_membership_id', 'preliminary_cause', 'root_cause', 'method', 'notes'])

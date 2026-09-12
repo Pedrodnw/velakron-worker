@@ -14,6 +14,11 @@ describe('V2 reminder ownership and secure links', () => {
     expect(await stillActionable({ connection: connection({}), candidate })).to.equal(true)
     for (const overrides of [{ attentionconditions: { ...formal, __v: 3 } }, { attentionconditions: { ...formal, active: false, terminal: true } }, { attentionconditions: { ...formal, workflow_state: 'supplier_resolution_required' } }, { organizations: null }, { organizationrelationships: null }, { partworkspaceshares: null }, { productionrecords: null }]) expect(await stillActionable({ connection: connection(overrides), candidate })).to.equal(false)
   })
+  it('routes pending affected-part confirmation to the supplier', async () => {
+    const pending = { ...formal, category: 'non_conformance', workflow_state: 'supplier_scope_required' }
+    expect(await stillActionable({ connection: connection({ attentionconditions: pending }), candidate: { ...candidate, organizationId: 'supplier' } })).to.equal(true)
+    expect(await stillActionable({ connection: connection({ attentionconditions: pending }), candidate })).to.equal(false)
+  })
   it('links directly to the secure production step without technical content', () => {
     const message = technicalDetailsFree({ clientAppUrl: 'https://synthetic.example', productionId: 'production', formalId: 'formal', kind: 'formal' })
     expect(message.text).to.include('/app/production/production?formal=formal')
