@@ -23,6 +23,8 @@ const serverBilling = require('../../new-server/models/BillingModels')
 const workerBilling = require('../models/BillingModels')
 const serverCollaborationNotification = require('../../new-server/models/CollaborationNotification')
 const workerCollaborationNotification = require('../models/CollaborationNotification')
+const serverSalesPartner = require('../../new-server/models/SalesPartnerModels')
+const workerSalesPartner = require('../models/SalesPartnerModels')
 const fs = require('node:fs')
 const path = require('node:path')
 
@@ -65,7 +67,7 @@ const describeSchema = schema => ({
 const checkModelParity = () => {
   // Shared nested definitions include validators, defaults, middleware and
   // composition that a shallow path comparison cannot prove equivalent.
-  for (const file of ['FormalEscalationData.js', 'collaborationIntegrity.js', 'PartCollaboration.js', 'AttentionCondition.js', 'ProductionRecord.js', 'CollaborationNotification.js']) {
+  for (const file of ['FormalEscalationData.js', 'collaborationIntegrity.js', 'PartCollaboration.js', 'AttentionCondition.js', 'ProductionRecord.js', 'CollaborationNotification.js', 'SalesPartnerModels.js']) {
     assert.equal(fs.readFileSync(path.join(__dirname, '../../new-server/models', file), 'utf8'), fs.readFileSync(path.join(__dirname, '../models', file), 'utf8'), `${file} source differs between server and worker`)
   }
   const pairs = [
@@ -92,6 +94,13 @@ const checkModelParity = () => {
     ['BillingPaymentMethod', serverBilling.createBillingPaymentMethodSchema, workerBilling.createBillingPaymentMethodSchema],
     ['BillingWebhookEvent', serverBilling.createBillingWebhookEventSchema, workerBilling.createBillingWebhookEventSchema],
     ['BillingOperation', serverBilling.createBillingOperationSchema, workerBilling.createBillingOperationSchema],
+    ['SalesPartnerProfile', serverSalesPartner.createSalesPartnerProfileSchema, workerSalesPartner.createSalesPartnerProfileSchema],
+    ['SalesPartnerAgreementAcceptance', serverSalesPartner.createSalesPartnerAgreementAcceptanceSchema, workerSalesPartner.createSalesPartnerAgreementAcceptanceSchema],
+    ['SalesPartnerMember', serverSalesPartner.createSalesPartnerMemberSchema, workerSalesPartner.createSalesPartnerMemberSchema],
+    ['SalesPartnerReferralLink', serverSalesPartner.createSalesPartnerReferralLinkSchema, workerSalesPartner.createSalesPartnerReferralLinkSchema],
+    ['SalesPartnerAttribution', serverSalesPartner.createSalesPartnerAttributionSchema, workerSalesPartner.createSalesPartnerAttributionSchema],
+    ['SalesPartnerCommission', serverSalesPartner.createSalesPartnerCommissionSchema, workerSalesPartner.createSalesPartnerCommissionSchema],
+    ['SalesPartnerStatement', serverSalesPartner.createSalesPartnerStatementSchema, workerSalesPartner.createSalesPartnerStatementSchema],
   ]
   for (const [name, serverFactory, workerFactory] of pairs) {
     assert.deepEqual(

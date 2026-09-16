@@ -8,10 +8,22 @@ const {
   BillingSubscription,
   BillingWebhookEvent,
 } = require('../models/BillingModels')
+const {
+  SalesPartnerAttribution,
+  SalesPartnerCommission,
+} = require('../models/SalesPartnerModels')
+const {
+  accrueAnnualSubscriptionFinderFee,
+  accrueEarlyAccessFinderFee,
+  reverseEarlyAccessFinderFee,
+  reverseSalesPartnerCommission,
+} = require('./salesPartnerCommissions')
 
 const DAY = 24 * 60 * 60 * 1000
 const supportedEventTypes = new Set([
   'checkout.session.completed',
+  'checkout.session.async_payment_succeeded',
+  'charge.refunded',
   'customer.subscription.created',
   'customer.subscription.updated',
   'customer.subscription.deleted',
@@ -223,6 +235,9 @@ const handleCheckout = async (session, models, now) => {
     account.status = 'active'
     account.access_mode = 'full'
     await account.save()
+    if (models.SalesPartnerAttribution && models.SalesPartnerCommission) {
+      await accrueEarlyAccessFinderFee({ session, offer, account, earnedAt: now, models })
+    }
     return offer
   }
   return null
@@ -234,7 +249,7 @@ const handleInvoice = async (invoice, eventType, models, now) => {
   const subscription = providerSubscriptionId
     ? await models.BillingSubscription.findOne({ organization: account.organization, current: true }).select('+provider_subscription_id')
     : null
-  await models.BillingInvoice.findOneAndUpdate(
+  const projectedInvoice = await models.BillingInvoice.findOneAndUpdate(
     { provider_invoice_id: invoice.id },
     {
       $set: invoiceProjection(invoice, {
@@ -261,12 +276,33 @@ const handleInvoice = async (invoice, eventType, models, now) => {
   }
   await account.save()
   if (subscription?.isModified()) await subscription.save()
+  if (eventType === 'invoice.paid' && models.SalesPartnerAttribution && models.SalesPartnerCommission) {
+    await accrueAnnualSubscriptionFinderFee({ invoice: projectedInvoice, subscription, models })
+  }
+  if (eventType === 'invoice.voided' && models.SalesPartnerCommission) {
+    await reverseSalesPartnerCommission({ invoice: projectedInvoice, reason: 'Customer invoice was voided', models })
+  }
   return account
+}
+
+const handleRefund = async (charge, models) => {
+  const providerInvoiceId = providerId(charge.invoice)
+  if (providerInvoiceId) {
+    const invoice = await models.BillingInvoice.findOne({ provider_invoice_id: providerInvoiceId })
+    if (invoice) {
+      return reverseSalesPartnerCommission({ invoice, reason: 'Customer payment was refunded', models })
+    }
+  }
+  return reverseEarlyAccessFinderFee({
+    paymentIntentId: providerId(charge.payment_intent),
+    reason: 'Customer Early Access payment was refunded',
+    models,
+  })
 }
 
 const processPayload = async ({ eventType, object, models, now }) => {
   if (!supportedEventTypes.has(eventType)) return 'ignored'
-  if (eventType === 'checkout.session.completed') {
+  if (eventType === 'checkout.session.completed' || eventType === 'checkout.session.async_payment_succeeded') {
     await handleCheckout(object, models, now)
     return 'processed'
   }
@@ -277,6 +313,10 @@ const processPayload = async ({ eventType, object, models, now }) => {
   }
   if (eventType.startsWith('invoice.')) {
     await handleInvoice(object, eventType, models, now)
+    return 'processed'
+  }
+  if (eventType === 'charge.refunded') {
+    await handleRefund(object, models)
     return 'processed'
   }
   if (eventType.startsWith('payment_method.')) {
@@ -312,6 +352,8 @@ const createBillingWebhookProcessor = ({
     BillingPlan,
     BillingSubscription,
     BillingWebhookEvent,
+    SalesPartnerAttribution,
+    SalesPartnerCommission,
   },
   now = () => new Date(),
   maxAttempts = 8,

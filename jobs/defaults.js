@@ -17,6 +17,7 @@ const { sweepNdaRenewalReminders } = require('../services/ndaRenewalReminders')
 const { createBillingLifecycleJob, createBillingWebhookJob } = require('./billing')
 const { createBillingWebhookProcessor } = require('../services/billingWebhookProcessor')
 const { sweepBillingLifecycle } = require('../services/billingLifecycle')
+const { createSalesPartnerStatementJob } = require('./salesPartnerStatements')
 
 const registerDefaultJobs = ({ emailProvider, config, malwareScanner = null }) => {
   const runtime = config || {
@@ -128,6 +129,12 @@ const registerDefaultJobs = ({ emailProvider, config, malwareScanner = null }) =
       reminderWrites: runtime.jobs.billingReminderWritesEnabled,
       encryptionKey: runtime.email.outboxEncryptionKey,
       clientAppUrl: runtime.clientAppUrl || 'http://127.0.0.1:5001',
+    }))
+  }
+  if (!getJob('sales_partner.statements.generate')) {
+    registerJob(createSalesPartnerStatementJob({
+      enabled: runtime.jobs.scheduledEnabled && runtime.jobs.billingProcessingEnabled,
+      intervalMilliseconds: runtime.jobs.billingLifecycleIntervalMilliseconds,
     }))
   }
 }
