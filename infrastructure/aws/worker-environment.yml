@@ -58,6 +58,13 @@ Parameters:
       - 'true'
       - 'false'
     Description: Master worker execution switch.
+  EmailDeliveryEnabled:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Enables delivery of queued identity email through the configured provider.
   ScheduledJobsEnabled:
     Type: String
     Default: 'false'
@@ -253,7 +260,7 @@ Resources:
           Value: gmail
         - Namespace: aws:elasticbeanstalk:application:environment
           OptionName: VELAKRON_EMAIL_DELIVERY_ENABLED
-          Value: 'false'
+          Value: !Ref EmailDeliveryEnabled
         - Namespace: aws:elasticbeanstalk:application:environment
           OptionName: VELAKRON_GMAIL_CLIENT_ID
           Value: !Ref GmailClientId
