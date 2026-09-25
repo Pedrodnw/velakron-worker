@@ -11,7 +11,7 @@ const createOutboxEventSchema = () => {
     idempotency_key: { type: String, required: true, trim: true, maxlength: 240 },
     state: {
       type: String,
-      enum: ['pending', 'claimed', 'completed', 'retryable', 'dead'],
+      enum: ['pending', 'claimed', 'completed', 'retryable', 'dead', 'cancelled'],
       default: 'pending',
       required: true,
     },
