@@ -224,6 +224,23 @@ const createBillingWebhookEventSchema = () => {
   return schema
 }
 
+const createAgreementAcceptanceSchema = () => new Schema({
+  version: { type: String, required: true },
+  terms_hash: { type: String, required: true },
+  terms_snapshot: { type: Schema.Types.Mixed, required: true },
+  acceptance_statement: { type: String, required: true },
+  commercial_snapshot: { type: Schema.Types.Mixed, required: true },
+  accepted_at: { type: Date, required: true },
+  accepted_by: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  accepted_by_name: { type: String, default: '' },
+  accepted_by_email: { type: String, default: '' },
+  membership: { type: Schema.Types.ObjectId, ref: 'OrganizationMembership', default: null },
+  organization_name: { type: String, required: true },
+  ip_address: { type: String, default: '' },
+  user_agent: { type: String, default: '' },
+  authorized: { type: Boolean, required: true },
+}, { _id: false })
+
 const createBillingOperationSchema = () => {
   const schema = new Schema({
     organization: { type: Schema.Types.ObjectId, ref: 'Organization', required: true, index: true },
@@ -236,6 +253,7 @@ const createBillingOperationSchema = () => {
     },
     idempotency_key: { type: String, required: true, trim: true, maxlength: 240 },
     request_fingerprint: { type: String, required: true, trim: true, maxlength: 128 },
+    agreement_acceptance: { type: createAgreementAcceptanceSchema(), default: undefined, immutable: true, select: false },
     status: { type: String, enum: ['pending', 'completed', 'failed'], default: 'pending', required: true, index: true },
     provider_object_id: { type: String, trim: true, maxlength: 320, default: null, select: false },
     redirect_url: { type: String, trim: true, maxlength: 1200, default: null, select: false },
