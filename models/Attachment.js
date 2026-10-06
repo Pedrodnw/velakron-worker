@@ -17,6 +17,7 @@ const createAttachmentSchema = () => {
     },
     subject_id: { type: Schema.Types.ObjectId, required: true, index: true },
     production_record: { type: Schema.Types.ObjectId, ref: 'ProductionRecord', default: null, index: true },
+    part_requirement: { type: Schema.Types.ObjectId, ref: 'PartRequirement', default: null, index: true },
     original_filename: { type: String, required: true, trim: true, maxlength: 240 },
     display_filename: { type: String, trim: true, maxlength: 240, default: '' },
     mime_type: { type: String, required: true, trim: true, maxlength: 120 },
